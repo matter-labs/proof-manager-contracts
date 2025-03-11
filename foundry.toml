@@ -1,0 +1,25 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc = "0.8.29"
+optimizer = true
+optimizer_runs = 200
+verbosity = 3
+
+[profile.ci]
+fuzz = { runs = 1000 }
+verbosity = 4
+
+[fmt]
+line_length = 100
+tab_width = 4
+bracket_spacing = true
+
+[rpc_endpoints]
+ethereum = "${RPC_ETHEREUM}"
+zksync = "${RPC_ZKSYNC}"
+
+[etherscan]
+ethereum = { key = "${ETHERSCAN_API_KEY}" }
+zksync = { key = "${EXPLORER_API_KEY}", url = "https://api-explorer-zksync-era.etherscan.io/api" }
