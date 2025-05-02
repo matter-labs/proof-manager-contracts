@@ -59,7 +59,7 @@ jobs:
 
       - name: Post coverage
         if: github.event_name == 'pull_request'
-        uses: romeovs/lcov-reporter-action@87a815f34ec27a5826abba44ce09bbc688da58fd # v0.4.0
+        uses: romeovs/lcov-reporter-action@2a28ec3e25fb7eae9cb537e9141603486f810d1a # not released
         with:
           delete-old-comments: true
           lcov-file: lcov.info
