@@ -10,12 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @author Matter Labs
 /// @notice Entry point for Proof Manager.
-contract ProofManager is
-    ProofManagerStorage,
-    RequestManager,
-    NetworkAdmin,
-    ProvingNetworkActions
-{
+contract ProofManager is ProofManagerStorage, Ownable {
     IERC20 public immutable USDC;
 
     /// @dev Constructor. Sets up the contract.
@@ -54,11 +49,6 @@ contract ProofManager is
         emit ProvingNetworkStatusChanged(provingNetwork, ProvingNetworkStatus.Active);
     }
 
-    /// @dev Used as internal hook for ProvingNetworkActions.
-    function _USDC() internal view override returns (IERC20) {
-        return USDC;
-    }
-
     /*////////////////////////
             Getters
     ////////////////////////*/
@@ -84,5 +74,249 @@ contract ProofManager is
     /// @dev Getter for Preferred Proving Network.
     function preferredNetwork() external view returns (ProvingNetwork) {
         return _preferredNetwork;
+    }
+
+    /////// NetworkAdmin functions ///////
+
+    /*////////////////////////
+            Modifiers
+    ////////////////////////*/
+
+    /// @dev None is an escape hatch (lack of Option<>) and should not be used in public API.
+    modifier provingNetworkNotNone(ProvingNetwork provingNetwork) {
+        require(provingNetwork != ProvingNetwork.None, "proving network cannot be None");
+        _;
+    }
+
+    /*////////////////////////
+            Public API
+    ////////////////////////*/
+
+    /// @dev Useful for key rotation or key compromise.
+    function updateProvingNetworkAddress(ProvingNetwork provingNetwork, address addr)
+        external
+        onlyOwner
+        provingNetworkNotNone(provingNetwork)
+    {
+        require(addr != address(0), "cannot unset proving network address");
+        _provingNetworks[provingNetwork].addr = addr;
+        emit ProvingNetworkAddressChanged(provingNetwork, addr);
+    }
+
+    /// @dev Useful for Proving Network outage (Active to Inactive) or recovery (Inactive to Active).
+    function updateProvingNetworkStatus(ProvingNetwork provingNetwork, ProvingNetworkStatus status)
+        external
+        onlyOwner
+        provingNetworkNotNone(provingNetwork)
+    {
+        _provingNetworks[provingNetwork].status = status;
+        emit ProvingNetworkStatusChanged(provingNetwork, status);
+    }
+
+    /// @dev Used once per month to direct more proofs to the network that scored best previous month.
+    function updatePreferredProvingNetwork(ProvingNetwork provingNetwork) external onlyOwner {
+        _preferredNetwork = provingNetwork;
+        emit PreferredNetworkSet(provingNetwork);
+    }
+
+    ///////// Proving Network Actions /////////
+
+    /*////////////////////////
+            Modifiers
+    ////////////////////////*/
+
+    /// @dev You need to be a proving network to call this function.
+    modifier onlyProvingNetwork() {
+        require(
+            msg.sender == _provingNetworks[ProvingNetwork.Fermah].addr
+                || msg.sender == _provingNetworks[ProvingNetwork.Lagrange].addr,
+            "only proving network"
+        );
+        _;
+    }
+
+    /// @dev You need the proof request to be assigned to you to call this function.
+    modifier onlyAssignee(ProofRequestIdentifier calldata id) {
+        require(
+            msg.sender
+                == _provingNetworks[_proofRequests[id.chainId][id.blockNumber].assignedTo].addr,
+            "only proving network assignee"
+        );
+        _;
+    }
+
+    /*////////////////////////
+            Public API
+    ////////////////////////*/
+
+    /// @dev Acknowledges a proof request. The proving network can either commit to prove or refuse (due to price, availability, etc).
+    function acknowledgeProofRequest(ProofRequestIdentifier calldata id, bool accept)
+        external
+        onlyAssignee(id)
+    {
+        // NOTE: Checking if the proof request exists is not necessary. By default, a proof request that doesn't exist is assigned to ProvingNetwork None.
+        //      As such, onlyAssignee(id) will fail.
+        ProofRequest storage proofRequest = _proofRequests[id.chainId][id.blockNumber];
+        require(
+            proofRequest.status == ProofRequestStatus.Ready,
+            "cannot acknowledge proof request that is not ready"
+        );
+        require(
+            block.timestamp <= proofRequest.submittedAt + ACK_TIMEOUT,
+            "proof request passed acknowledgement deadline"
+        );
+
+        proofRequest.status = accept ? ProofRequestStatus.Committed : ProofRequestStatus.Refused;
+
+        emit ProofStatusChanged(id.chainId, id.blockNumber, proofRequest.status);
+    }
+
+    /// @dev Submit proof for proof request.
+    function submitProof(
+        ProofRequestIdentifier calldata id,
+        bytes calldata proof,
+        uint256 provingNetworkPrice
+    ) external onlyAssignee(id) {
+        ProofRequest storage proofRequest = _proofRequests[id.chainId][id.blockNumber];
+        require(
+            proofRequest.status == ProofRequestStatus.Committed,
+            "cannot submit proof for non committed proof request"
+        );
+        require(
+            block.timestamp <= proofRequest.submittedAt + proofRequest.timeoutAfter,
+            "proof request passed proving deadline"
+        );
+
+        proofRequest.status = ProofRequestStatus.Proven;
+        proofRequest.proof = proof;
+        proofRequest.provingNetworkPrice = provingNetworkPrice <= proofRequest.maxReward
+            ? provingNetworkPrice
+            : proofRequest.maxReward;
+
+        emit ProofStatusChanged(id.chainId, id.blockNumber, proofRequest.status);
+    }
+
+    /// @dev Withdraws payment for already validated proofs, up to WITHDRAW_LIMIT.
+    ///     NOTE: Successive calls can be made if you reached the limit.
+    function withdraw() external onlyProvingNetwork {
+        ProvingNetwork provingNetwork = msg.sender == _provingNetworks[ProvingNetwork.Fermah].addr
+            ? ProvingNetwork.Fermah
+            : ProvingNetwork.Lagrange;
+
+        ProvingNetworkInfo storage info = _provingNetworks[provingNetwork];
+        uint256 payableAmount = info.paymentDue;
+        require(payableAmount > 0, "no payment due");
+
+        if (payableAmount > WITHDRAW_LIMIT) {
+            payableAmount = WITHDRAW_LIMIT;
+        }
+
+        uint256 paid = 0;
+        uint256 i = 0;
+
+        while (i < info.unclaimedProofs.length && paid < payableAmount) {
+            ProofRequestIdentifier memory id = info.unclaimedProofs[i];
+
+            ProofRequest storage proofRequest = _proofRequests[id.chainId][id.blockNumber];
+
+            uint256 price = proofRequest.provingNetworkPrice;
+            if (paid + price > payableAmount) break;
+
+            proofRequest.status = ProofRequestStatus.Paid;
+            paid += price;
+
+            // swap and pop to reduce gas utilization
+            info.unclaimedProofs[i] = info.unclaimedProofs[info.unclaimedProofs.length - 1];
+            info.unclaimedProofs.pop();
+        }
+
+        info.paymentDue -= paid;
+        // sanity check, "should never happen"
+        require(paid > 0, "paid==0");
+
+        require(USDC.transfer(msg.sender, paid), "USDC transfer fail");
+        emit PaymentWithdrawn(provingNetwork, paid);
+    }
+
+    /////////// Proving Network Actions ///////////
+    using Transitions for ProofRequestStatus;
+
+    /*////////////////////////
+            Helpers
+    ////////////////////////*/
+
+    /// @dev Computes the next assignee based on current state. Does not change state!
+    ///    NOTE: Assigment is 25%, 25% and 50%.
+    function _nextAssignee() internal view returns (ProvingNetwork to) {
+        uint256 mod = _requestCounter % 4;
+        if (mod == 0) return ProvingNetwork.Fermah;
+        if (mod == 1) return ProvingNetwork.Lagrange;
+        return _preferredNetwork;
+    }
+
+    /*////////////////////////
+            Public API
+    ////////////////////////*/
+
+    /// @dev Submits a proof request. The proof is assigned to the next proving network in round robin.
+    function submitProofRequest(
+        ProofRequestIdentifier calldata id,
+        ProofRequestParams calldata params
+    ) external onlyOwner {
+        require(
+            _proofRequests[id.chainId][id.blockNumber].submittedAt == 0, "duplicated proof request"
+        );
+        require(params.timeoutAfter > 0, "proof generation timeout must be bigger than 0");
+
+        require(
+            params.maxReward <= WITHDRAW_LIMIT, "max reward is higher than maximum withdraw limit"
+        );
+
+        ProvingNetwork assignedTo = _nextAssignee();
+        bool refused = (assignedTo == ProvingNetwork.None)
+            || _provingNetworks[assignedTo].status == ProvingNetworkStatus.Inactive;
+
+        ProofRequestStatus status = refused ? ProofRequestStatus.Refused : ProofRequestStatus.Ready;
+
+        _proofRequests[id.chainId][id.blockNumber] = ProofRequest({
+            proofInputsUrl: params.proofInputsUrl,
+            protocolMajor: params.protocolMajor,
+            protocolMinor: params.protocolMinor,
+            protocolPatch: params.protocolPatch,
+            submittedAt: block.timestamp,
+            timeoutAfter: params.timeoutAfter,
+            maxReward: params.maxReward,
+            status: status,
+            assignedTo: assignedTo,
+            provingNetworkPrice: 0,
+            proof: bytes("")
+        });
+
+        emit ProofRequestSubmitted(id.chainId, id.blockNumber, assignedTo, status);
+
+        _requestCounter += 1;
+    }
+
+    /// @dev Changes proof request's status. Used for timeout scenarios (unacknowledged/timed out) or validation from L1 (validated/validation failed).
+    ///     NOTE: When a proof request is marked as validated, the proof will be due for payment to the proving network that proved it.
+    function updateProofRequestStatus(ProofRequestIdentifier calldata id, ProofRequestStatus status)
+        external
+        onlyOwner
+    {
+        ProofRequest storage proofRequest = _proofRequests[id.chainId][id.blockNumber];
+        require(
+            proofRequest.status.isRequestManagerAllowed(status),
+            "transition not allowed for request manager"
+        );
+        proofRequest.status = status;
+        emit ProofStatusChanged(id.chainId, id.blockNumber, status);
+
+        if (status == ProofRequestStatus.Validated) {
+            ProvingNetworkInfo storage provingNetworkInfo =
+                _provingNetworks[proofRequest.assignedTo];
+
+            provingNetworkInfo.unclaimedProofs.push(id);
+            provingNetworkInfo.paymentDue += proofRequest.provingNetworkPrice;
+        }
     }
 }
