@@ -18,7 +18,12 @@ event ProofRequestSubmitted(
     uint256 indexed chainId,
     uint256 indexed blockNumber,
     ProvingNetwork indexed assignedTo,
-    ProofRequestStatus status
+    string proofInputsUrl,
+    uint32 protocolMajor,
+    uint32 protocolMinor,
+    uint32 protocolPatch,
+    uint256 timeoutAfter,
+    uint256 maxReward
 );
 
 /// @dev Emitted when a proof request status is changed. Useful for troubleshooting.

@@ -21,7 +21,17 @@ contract RequestManagerTest is Base {
     /// @dev Happy path for submitting a proof request.
     function testSubmitProofRequest() public {
         vm.expectEmit(true, true, false, true);
-        emit ProofRequestSubmitted(1, 1, ProvingNetwork.Fermah, ProofRequestStatus.Ready);
+        emit ProofRequestSubmitted(
+            1,
+            1,
+            ProvingNetwork.Fermah,
+            "https://console.google.com/buckets/...",
+            0,
+            27,
+            0,
+            3600,
+            4e6
+        );
 
         vm.prank(owner);
         proofManager.submitProofRequest(

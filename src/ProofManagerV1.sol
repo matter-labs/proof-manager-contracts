@@ -301,7 +301,17 @@ contract ProofManagerV1 is IProofManager, ProofManagerStorage, Initializable, Ow
             proof: bytes("")
         });
 
-        emit ProofRequestSubmitted(id.chainId, id.blockNumber, assignedTo, status);
+        emit ProofRequestSubmitted(
+            id.chainId,
+            id.blockNumber,
+            assignedTo,
+            params.proofInputsUrl,
+            params.protocolMajor,
+            params.protocolMinor,
+            params.protocolPatch,
+            params.timeoutAfter,
+            params.maxReward
+        );
 
         _requestCounter += 1;
     }
