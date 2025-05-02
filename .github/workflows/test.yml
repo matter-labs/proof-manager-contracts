@@ -56,8 +56,8 @@ jobs:
       - name: Filter directories from coverage
         run: |
           lcov \
-            --remove lcov.info 'test/*' 'script/*'
-            --output-file lcov.info
+            --remove lcov.info 'test/*' 'script/*' \
+            --output-file lcov.info \
             --rc lcov_branch_coverage=1
 
       - name: Post coverage
