@@ -8,13 +8,16 @@ on:
 env:
   FOUNDRY_PROFILE: ci
 
+# permissions:
+#   contents: write
+
 jobs:
   test_and_coverage:
     strategy:
       fail-fast: true
 
-    permissions:
-      pull-requests: write # needed for posting coverage comments
+    # permissions:
+    #   pull-requests: write # needed for posting coverage comments
 
     name: Foundry project
     runs-on: ubuntu-latest
@@ -55,7 +58,7 @@ jobs:
 
       - name: Filter directories from coverage
         run: |
-          lcov --remove lcov.info 'test/*' --output-file lcov.info
+          lcov --remove lcov.info 'test/*' 'script/*' --output-file lcov.info
 
       - name: Post coverage
         if: github.event_name == 'pull_request'
@@ -69,5 +72,5 @@ jobs:
         uses: zgosalvez/github-actions-report-lcov@ec80ffb0e31fc6b6c35e18a8ef83403b1a8a84ee # v4.1.25
         with:
           coverage-files: ./lcov.info
+          minimum-coverage: 100
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          minimum-coverage: 90
