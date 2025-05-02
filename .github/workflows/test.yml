@@ -2,24 +2,21 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
+      - "v*"
   pull_request:
   workflow_dispatch:
 
 env:
   FOUNDRY_PROFILE: ci
 
-# permissions:
-#   contents: write
-
 jobs:
   test_and_coverage:
     strategy:
       fail-fast: true
 
-    # permissions:
-    #   pull-requests: write # needed for posting coverage comments
-
-    name: Foundry project
+    name: Run tests and coverage (foundry)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
