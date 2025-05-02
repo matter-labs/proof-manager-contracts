@@ -47,14 +47,14 @@ contract ProofManagerTest is Base {
     /// @dev Do not allow zero address for proving networks.
     function testInitFailsWithZeroProvingNetworkAddress() public {
         vm.expectRevert("proving network address cannot be zero");
-        new ProofManager(address(0), lagrange, address(this));
+        new ProofManagerV1(address(0), lagrange, address(this));
         vm.expectRevert("proving network address cannot be zero");
-        new ProofManager(fermah, address(0), address(this));
+        new ProofManagerV1(fermah, address(0), address(this));
     }
 
     /// @dev Do not allow zero address for USDC contract.
     function testInitFailsWithZeroUSDCAddress() public {
         vm.expectRevert("usdc contract address cannot be zero");
-        new ProofManager(fermah, lagrange, address(0));
+        new ProofManagerV1(fermah, lagrange, address(0));
     }
 }

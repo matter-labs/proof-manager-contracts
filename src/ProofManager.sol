@@ -12,7 +12,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @author Matter Labs
 /// @notice Entry point for Proof Manager.
-contract ProofManager is ProofManagerStorage, Ownable {
+contract ProofManagerV1 is IProofManager, ProofManagerStorage, Ownable {
     IERC20 public immutable USDC;
 
     /// @dev Constructor. Sets up the contract.

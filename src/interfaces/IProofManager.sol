@@ -97,8 +97,6 @@ interface IProofManager {
 
     function updateProvingNetworkAddress(ProvingNetwork network, address addr) external;
 
-    function updateProvingNetworkStats() external;
-
     function updateProvingNetworkStatus(ProvingNetwork network, ProvingNetworkStatus status)
         external;
 
