@@ -19,14 +19,9 @@ contract ProofManager is
     IERC20 public immutable USDC;
 
     /// @dev Constructor. Sets up the contract.
-    constructor(
-        address fermah,
-        address lagrange,
-        address usdc
-    ) Ownable(msg.sender) {
+    constructor(address fermah, address lagrange, address usdc) Ownable(msg.sender) {
         require(
-            fermah != address(0) && lagrange != address(0),
-            "proving network address cannot be zero"
+            fermah != address(0) && lagrange != address(0), "proving network address cannot be zero"
         );
         require(usdc != address(0), "usdc contract address cannot be zero");
 
@@ -45,23 +40,18 @@ contract ProofManager is
     ////////////////////////*/
 
     /// @dev Initializes a proving network. Used in the constructor.
-    function initializeProvingNetwork(
-        ProvingNetwork provingNetwork,
-        address addr
-    ) private onlyOwner {
-        ProofManagerStorage.ProvingNetworkInfo storage info = _provingNetworks[
-            provingNetwork
-        ];
+    function initializeProvingNetwork(ProvingNetwork provingNetwork, address addr)
+        private
+        onlyOwner
+    {
+        ProofManagerStorage.ProvingNetworkInfo storage info = _provingNetworks[provingNetwork];
         info.addr = addr;
         info.status = ProvingNetworkStatus.Active;
         delete info.unclaimedProofs;
         info.paymentDue = 0;
 
         emit ProvingNetworkAddressChanged(provingNetwork, addr);
-        emit ProvingNetworkStatusChanged(
-            provingNetwork,
-            ProvingNetworkStatus.Active
-        );
+        emit ProvingNetworkStatusChanged(provingNetwork, ProvingNetworkStatus.Active);
     }
 
     /// @dev Used as internal hook for ProvingNetworkActions.
@@ -74,17 +64,20 @@ contract ProofManager is
     ////////////////////////*/
 
     /// @dev Getter for Proof Request.
-    function proofRequest(
-        uint256 chainId,
-        uint256 blockNumber
-    ) external view returns (ProofRequest memory) {
+    function proofRequest(uint256 chainId, uint256 blockNumber)
+        external
+        view
+        returns (ProofRequest memory)
+    {
         return _proofRequests[chainId][blockNumber];
     }
 
     /// @dev Getter for Proving Network Info.
-    function provingNetworkInfo(
-        ProvingNetwork provingNetwork
-    ) external view returns (ProvingNetworkInfo memory) {
+    function provingNetworkInfo(ProvingNetwork provingNetwork)
+        external
+        view
+        returns (ProvingNetworkInfo memory)
+    {
         return _provingNetworks[provingNetwork];
     }
 

@@ -31,12 +31,7 @@ contract RequestManagerTest is Base {
         proofManager.submitProofRequest(
             ProofManagerStorage.ProofRequestIdentifier(1, 1),
             ProofManagerStorage.ProofRequestParams(
-                "https://console.google.com/buckets/...",
-                0,
-                27,
-                0,
-                3600,
-                4e6
+                "https://console.google.com/buckets/...", 0, 27, 0, 3600, 4e6
             )
         );
         assertProofRequest(
@@ -77,30 +72,18 @@ contract RequestManagerTest is Base {
         proofManager.submitProofRequest(
             ProofManagerStorage.ProofRequestIdentifier(1, 1),
             ProofManagerStorage.ProofRequestParams(
-                "https://console.google.com/buckets/...",
-                0,
-                27,
-                0,
-                0,
-                4e6
+                "https://console.google.com/buckets/...", 0, 27, 0, 0, 4e6
             )
         );
     }
 
     /// @dev If the request is higher than withdrawal limit, then withdraw is blocked.
-    function testCannotSubmitProofWithMaxRewardHigherThanWithdrawalLimit()
-        public
-    {
+    function testCannotSubmitProofWithMaxRewardHigherThanWithdrawalLimit() public {
         vm.expectRevert("max reward is higher than maximum withdraw limit");
         proofManager.submitProofRequest(
             ProofManagerStorage.ProofRequestIdentifier(1, 1),
             ProofManagerStorage.ProofRequestParams(
-                "https://console.google.com/buckets/...",
-                0,
-                27,
-                0,
-                3600,
-                25_000e6 + 1
+                "https://console.google.com/buckets/...", 0, 27, 0, 3600, 25_000e6 + 1
             )
         );
     }
@@ -120,8 +103,7 @@ contract RequestManagerTest is Base {
             ),
             // request 2, fermah inactive, lagrange active, preferred none
             SubmitProofExpected(
-                ProofManagerStorage.ProvingNetwork.None,
-                ProofManagerStorage.ProofRequestStatus.Refused
+                ProofManagerStorage.ProvingNetwork.None, ProofManagerStorage.ProofRequestStatus.Refused
             ),
             // request 3, fermah inactive, lagrange active, preferred fermah
             SubmitProofExpected(
@@ -130,8 +112,7 @@ contract RequestManagerTest is Base {
             ),
             // request 4, fermah active, lagrange active, preferred fermah
             SubmitProofExpected(
-                ProofManagerStorage.ProvingNetwork.Fermah,
-                ProofManagerStorage.ProofRequestStatus.Ready
+                ProofManagerStorage.ProvingNetwork.Fermah, ProofManagerStorage.ProofRequestStatus.Ready
             ),
             // request 5, fermah active, lagrange active, preferred fermah
             SubmitProofExpected(
@@ -140,8 +121,7 @@ contract RequestManagerTest is Base {
             ),
             // request 6, fermah active, lagrange active, preferred fermah
             SubmitProofExpected(
-                ProofManagerStorage.ProvingNetwork.Fermah,
-                ProofManagerStorage.ProofRequestStatus.Ready
+                ProofManagerStorage.ProvingNetwork.Fermah, ProofManagerStorage.ProofRequestStatus.Ready
             ),
             // request 7, fermah active, lagrange active, preferred lagrange
             SubmitProofExpected(
@@ -159,9 +139,7 @@ contract RequestManagerTest is Base {
             submitDefaultProofRequest(1, i);
         }
 
-        proofManager.setPreferredNetwork(
-            ProofManagerStorage.ProvingNetwork.Fermah
-        );
+        proofManager.setPreferredNetwork(ProofManagerStorage.ProvingNetwork.Fermah);
 
         submitDefaultProofRequest(1, 3);
 
@@ -174,9 +152,7 @@ contract RequestManagerTest is Base {
             submitDefaultProofRequest(1, i);
         }
 
-        proofManager.setPreferredNetwork(
-            ProofManagerStorage.ProvingNetwork.Lagrange
-        );
+        proofManager.setPreferredNetwork(ProofManagerStorage.ProvingNetwork.Lagrange);
 
         submitDefaultProofRequest(1, 7);
 
@@ -215,9 +191,7 @@ contract RequestManagerTest is Base {
 
         vm.expectEmit(true, true, false, true);
         emit ProofManagerStorage.ProofStatusChanged(
-            1,
-            1,
-            ProofManagerStorage.ProofRequestStatus.Validated
+            1, 1, ProofManagerStorage.ProofRequestStatus.Validated
         );
         proofManager.markProof(
             ProofManagerStorage.ProofRequestIdentifier(1, 1),
@@ -275,12 +249,7 @@ contract RequestManagerTest is Base {
             proofManager.submitProofRequest(
                 ProofManagerStorage.ProofRequestIdentifier(1, i),
                 ProofManagerStorage.ProofRequestParams(
-                    "https://console.google.com/buckets/...",
-                    0,
-                    27,
-                    0,
-                    3600,
-                    price
+                    "https://console.google.com/buckets/...", 0, 27, 0, 3600, price
                 )
             );
             // pretend it's been committed
@@ -309,19 +278,14 @@ contract RequestManagerTest is Base {
             }
         }
 
-        ProofManagerStorage.ProofRequestIdentifier[]
-            memory identifiers = new ProofManagerStorage.ProofRequestIdentifier[](
-                2
-            );
+        ProofManagerStorage.ProofRequestIdentifier[] memory identifiers =
+            new ProofManagerStorage.ProofRequestIdentifier[](2);
         identifiers[0] = ProofManagerStorage.ProofRequestIdentifier(1, 0);
         identifiers[1] = ProofManagerStorage.ProofRequestIdentifier(1, 4);
         assertProvingNetworkInfo(
             ProofManagerStorage.ProvingNetwork.Fermah,
             ProofManagerStorage.ProvingNetworkInfo(
-                fermah,
-                ProofManagerStorage.ProvingNetworkStatus.Active,
-                identifiers,
-                6e6
+                fermah, ProofManagerStorage.ProvingNetworkStatus.Active, identifiers, 6e6
             )
         );
         identifiers = new ProofManagerStorage.ProofRequestIdentifier[](2);
@@ -330,10 +294,7 @@ contract RequestManagerTest is Base {
         assertProvingNetworkInfo(
             ProofManagerStorage.ProvingNetwork.Lagrange,
             ProofManagerStorage.ProvingNetworkInfo(
-                lagrange,
-                ProofManagerStorage.ProvingNetworkStatus.Active,
-                identifiers,
-                8e6
+                lagrange, ProofManagerStorage.ProvingNetworkStatus.Active, identifiers, 8e6
             )
         );
     }

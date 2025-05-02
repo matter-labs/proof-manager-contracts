@@ -6,11 +6,7 @@ import "./Base.t.sol";
 contract ProofManagerTest is Base {
     /// @dev Happy path for constructor.
     function testInit() public view {
-        assertEq(
-            proofManager.owner(),
-            owner,
-            "owner must be contract deployer"
-        );
+        assertEq(proofManager.owner(), owner, "owner must be contract deployer");
 
         assertProvingNetworkInfo(
             ProofManagerStorage.ProvingNetwork.Fermah,
@@ -42,8 +38,7 @@ contract ProofManagerTest is Base {
     function testConstructorEmitsEvents() public {
         vm.expectEmit(true, true, false, false);
         emit ProofManagerStorage.ProvingNetworkAddressChanged(
-            ProofManagerStorage.ProvingNetwork.Fermah,
-            fermah
+            ProofManagerStorage.ProvingNetwork.Fermah, fermah
         );
         vm.expectEmit(true, true, false, false);
         emit ProofManagerStorage.ProvingNetworkStatusChanged(
@@ -52,8 +47,7 @@ contract ProofManagerTest is Base {
         );
         vm.expectEmit(true, true, false, false);
         emit ProofManagerStorage.ProvingNetworkAddressChanged(
-            ProofManagerStorage.ProvingNetwork.Lagrange,
-            lagrange
+            ProofManagerStorage.ProvingNetwork.Lagrange, lagrange
         );
         vm.expectEmit(true, true, false, false);
         emit ProofManagerStorage.ProvingNetworkStatusChanged(
@@ -62,9 +56,7 @@ contract ProofManagerTest is Base {
         );
 
         vm.expectEmit(true, false, false, false);
-        emit ProofManagerStorage.PreferredNetworkSet(
-            ProofManagerStorage.ProvingNetwork.None
-        );
+        emit ProofManagerStorage.PreferredNetworkSet(ProofManagerStorage.ProvingNetwork.None);
         new ProofManagerHarness(fermah, lagrange, address(usdc));
     }
 

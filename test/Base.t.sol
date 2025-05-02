@@ -28,20 +28,13 @@ contract FakeUSDC is IERC20 {
             Implemented due to interface
     /////////////////////////////////////////*/
 
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amt
-    ) external returns (bool) {
+    function transferFrom(address from, address to, uint256 amt) external returns (bool) {
         balanceOf[from] -= amt;
         balanceOf[to] += amt;
         return true;
     }
 
-    function allowance(
-        address owner,
-        address spender
-    ) external view returns (uint256) {
+    function allowance(address owner, address spender) external view returns (uint256) {
         return 0;
     }
 
@@ -85,14 +78,10 @@ abstract contract Base is Test {
         ProofManagerStorage.ProvingNetwork network,
         ProofManagerStorage.ProvingNetworkInfo memory expectedInfo
     ) internal view {
-        ProofManagerStorage.ProvingNetworkInfo memory info = proofManager
-            .provingNetworkInfo(network);
+        ProofManagerStorage.ProvingNetworkInfo memory info =
+            proofManager.provingNetworkInfo(network);
 
-        assertEq(
-            info.addr,
-            expectedInfo.addr,
-            "Proving network address should be set correctly"
-        );
+        assertEq(info.addr, expectedInfo.addr, "Proving network address should be set correctly");
         assertEq(
             uint8(info.status),
             uint8(expectedInfo.status),
@@ -115,8 +104,8 @@ abstract contract Base is Test {
         ProofManagerStorage.ProofRequestIdentifier memory id,
         ProofManagerStorage.ProofRequest memory expectedProofRequest
     ) internal view {
-        ProofManagerStorage.ProofRequest memory proofRequest = proofManager
-            .proofRequest(id.chainId, id.blockNumber);
+        ProofManagerStorage.ProofRequest memory proofRequest =
+            proofManager.proofRequest(id.chainId, id.blockNumber);
         assertEq(
             proofRequest.proofInputsUrl,
             expectedProofRequest.proofInputsUrl,
@@ -167,11 +156,7 @@ abstract contract Base is Test {
             expectedProofRequest.provingNetworkPrice,
             "Proving network price should be set correctly"
         );
-        assertEq(
-            proofRequest.proof,
-            expectedProofRequest.proof,
-            "Proof should be set correctly"
-        );
+        assertEq(proofRequest.proof, expectedProofRequest.proof, "Proof should be set correctly");
     }
 
     /*/////////////////////
@@ -179,24 +164,13 @@ abstract contract Base is Test {
     /////////////////////*/
 
     /// @dev Submits a default proof request to the proof manager.
-    function submitDefaultProofRequest(
-        uint256 chainId,
-        uint256 blockNumber
-    ) internal {
-        ProofManagerStorage.ProofRequestIdentifier
-            memory id = ProofManagerStorage.ProofRequestIdentifier({
-                chainId: chainId,
-                blockNumber: blockNumber
-            });
+    function submitDefaultProofRequest(uint256 chainId, uint256 blockNumber) internal {
+        ProofManagerStorage.ProofRequestIdentifier memory id = ProofManagerStorage
+            .ProofRequestIdentifier({ chainId: chainId, blockNumber: blockNumber });
         proofManager.submitProofRequest(
             id,
             ProofManagerStorage.ProofRequestParams(
-                "https://console.google.com/buckets/...",
-                0,
-                27,
-                0,
-                3600,
-                4e6
+                "https://console.google.com/buckets/...", 0, 27, 0, 3600, 4e6
             )
         );
     }
@@ -205,8 +179,7 @@ abstract contract Base is Test {
     function expectOwnableRevert(address expectedCaller) internal {
         vm.expectRevert(
             abi.encodeWithSelector(
-                bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-                expectedCaller
+                bytes4(keccak256("OwnableUnauthorizedAccount(address)")), expectedCaller
             )
         );
     }

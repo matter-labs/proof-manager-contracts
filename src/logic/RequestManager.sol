@@ -33,27 +33,19 @@ abstract contract RequestManager is ProofManagerStorage, Ownable {
         ProofRequestParams calldata params
     ) external onlyOwner {
         require(
-            _proofRequests[id.chainId][id.blockNumber].submittedAt == 0,
-            "duplicated proof request"
+            _proofRequests[id.chainId][id.blockNumber].submittedAt == 0, "duplicated proof request"
         );
-        require(
-            params.timeoutAfter > 0,
-            "proof generation timeout must be bigger than 0"
-        );
+        require(params.timeoutAfter > 0, "proof generation timeout must be bigger than 0");
 
         require(
-            params.maxReward <= WITHDRAW_LIMIT,
-            "max reward is higher than maximum withdraw limit"
+            params.maxReward <= WITHDRAW_LIMIT, "max reward is higher than maximum withdraw limit"
         );
 
         ProvingNetwork assignedTo = _nextAssignee();
-        bool refused = (assignedTo == ProvingNetwork.None) ||
-            _provingNetworks[assignedTo].status ==
-            ProvingNetworkStatus.Inactive;
+        bool refused = (assignedTo == ProvingNetwork.None)
+            || _provingNetworks[assignedTo].status == ProvingNetworkStatus.Inactive;
 
-        ProofRequestStatus status = refused
-            ? ProofRequestStatus.Refused
-            : ProofRequestStatus.Ready;
+        ProofRequestStatus status = refused ? ProofRequestStatus.Refused : ProofRequestStatus.Ready;
 
         _proofRequests[id.chainId][id.blockNumber] = ProofRequest({
             proofInputsUrl: params.proofInputsUrl,
@@ -69,25 +61,18 @@ abstract contract RequestManager is ProofManagerStorage, Ownable {
             proof: bytes("")
         });
 
-        emit ProofRequestSubmitted(
-            id.chainId,
-            id.blockNumber,
-            assignedTo,
-            status
-        );
+        emit ProofRequestSubmitted(id.chainId, id.blockNumber, assignedTo, status);
 
         _requestCounter += 1;
     }
 
     /// @dev Changes proof request's status. Used for timeout scenarios (unacknowledged/timed out) or validation from L1 (validated/validation failed).
     ///     NOTE: When a proof request is marked as validated, the proof will be due for payment to the proving network that proved it.
-    function markProof(
-        ProofRequestIdentifier calldata id,
-        ProofRequestStatus status
-    ) external onlyOwner {
-        ProofRequest storage proofRequest = _proofRequests[id.chainId][
-            id.blockNumber
-        ];
+    function markProof(ProofRequestIdentifier calldata id, ProofRequestStatus status)
+        external
+        onlyOwner
+    {
+        ProofRequest storage proofRequest = _proofRequests[id.chainId][id.blockNumber];
         require(
             proofRequest.status.isRequestManagerAllowed(status),
             "transition not allowed for request manager"
@@ -96,9 +81,8 @@ abstract contract RequestManager is ProofManagerStorage, Ownable {
         emit ProofStatusChanged(id.chainId, id.blockNumber, status);
 
         if (status == ProofRequestStatus.Validated) {
-            ProvingNetworkInfo storage provingNetworkInfo = _provingNetworks[
-                proofRequest.assignedTo
-            ];
+            ProvingNetworkInfo storage provingNetworkInfo =
+                _provingNetworks[proofRequest.assignedTo];
 
             provingNetworkInfo.unclaimedProofs.push(id);
             provingNetworkInfo.paymentDue += proofRequest.provingNetworkPrice;

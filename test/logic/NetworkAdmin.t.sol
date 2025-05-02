@@ -12,12 +12,10 @@ contract NetworkAdminTest is Base {
     function testChangeProvingNetworkAddress() public {
         vm.expectEmit(true, true, false, true);
         emit ProofManagerStorage.ProvingNetworkAddressChanged(
-            ProofManagerStorage.ProvingNetwork.Fermah,
-            otherProvingNetwork
+            ProofManagerStorage.ProvingNetwork.Fermah, otherProvingNetwork
         );
         proofManager.changeProvingNetworkAddress(
-            ProofManagerStorage.ProvingNetwork.Fermah,
-            otherProvingNetwork
+            ProofManagerStorage.ProvingNetwork.Fermah, otherProvingNetwork
         );
         assertProvingNetworkInfo(
             ProofManagerStorage.ProvingNetwork.Fermah,
@@ -35,8 +33,7 @@ contract NetworkAdminTest is Base {
         vm.prank(nonOwner);
         expectOwnableRevert(nonOwner);
         proofManager.changeProvingNetworkAddress(
-            ProofManagerStorage.ProvingNetwork.Fermah,
-            otherProvingNetwork
+            ProofManagerStorage.ProvingNetwork.Fermah, otherProvingNetwork
         );
     }
 
@@ -44,8 +41,7 @@ contract NetworkAdminTest is Base {
     function testCannotChangeProvingNetworkAddressForNone() public {
         vm.expectRevert("proving network cannot be None");
         proofManager.changeProvingNetworkAddress(
-            ProofManagerStorage.ProvingNetwork.None,
-            otherProvingNetwork
+            ProofManagerStorage.ProvingNetwork.None, otherProvingNetwork
         );
     }
 
@@ -53,8 +49,7 @@ contract NetworkAdminTest is Base {
     function testCannotChangeProvingNetworkAddressToZero() public {
         vm.expectRevert("cannot unset proving network address");
         proofManager.changeProvingNetworkAddress(
-            ProofManagerStorage.ProvingNetwork.Fermah,
-            address(0)
+            ProofManagerStorage.ProvingNetwork.Fermah, address(0)
         );
     }
 
@@ -116,12 +111,8 @@ contract NetworkAdminTest is Base {
         );
 
         vm.expectEmit(true, true, false, true);
-        emit ProofManagerStorage.PreferredNetworkSet(
-            ProofManagerStorage.ProvingNetwork.Fermah
-        );
-        proofManager.setPreferredNetwork(
-            ProofManagerStorage.ProvingNetwork.Fermah
-        );
+        emit ProofManagerStorage.PreferredNetworkSet(ProofManagerStorage.ProvingNetwork.Fermah);
+        proofManager.setPreferredNetwork(ProofManagerStorage.ProvingNetwork.Fermah);
         assertEq(
             uint8(proofManager.preferredNetwork()),
             uint8(ProofManagerStorage.ProvingNetwork.Fermah),
@@ -133,8 +124,6 @@ contract NetworkAdminTest is Base {
     function testNonOwnerCannotSetPreferredNetwork() public {
         vm.prank(nonOwner);
         expectOwnableRevert(nonOwner);
-        proofManager.setPreferredNetwork(
-            ProofManagerStorage.ProvingNetwork.Fermah
-        );
+        proofManager.setPreferredNetwork(ProofManagerStorage.ProvingNetwork.Fermah);
     }
 }

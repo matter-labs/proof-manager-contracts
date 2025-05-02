@@ -5,11 +5,9 @@ import "../../src/ProofManager.sol";
 
 /// @dev Test‑only wrapper that exposes internal fields/allows specific transitions to simplify code.
 contract ProofManagerHarness is ProofManager {
-    constructor(
-        address fermah,
-        address lagrange,
-        address usdc
-    ) ProofManager(fermah, lagrange, usdc) {}
+    constructor(address fermah, address lagrange, address usdc)
+        ProofManager(fermah, lagrange, usdc)
+    { }
 
     /*////////////////////////
             Helpers

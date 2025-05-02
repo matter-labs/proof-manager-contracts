@@ -86,8 +86,7 @@ abstract contract ProofManagerStorage {
     mapping(ProvingNetwork => ProvingNetworkInfo) internal _provingNetworks;
 
     /// @dev Mapping for the source of truth on proof requests. (ProofRequestIdentifier => ProofRequest)
-    mapping(uint256 => mapping(uint256 => ProofRequest))
-        internal _proofRequests;
+    mapping(uint256 => mapping(uint256 => ProofRequest)) internal _proofRequests;
 
     /// @dev Proving Network that will receive more proof requests.
     ///     By default, None, but will be computed on a previous month basis and set by the owner.
@@ -123,25 +122,19 @@ abstract contract ProofManagerStorage {
 
     /// @dev Emitted when a proof request status is changed. Useful for troubleshooting.
     event ProofStatusChanged(
-        uint256 indexed chainId,
-        uint256 indexed blockNumber,
-        ProofRequestStatus status
+        uint256 indexed chainId, uint256 indexed blockNumber, ProofRequestStatus status
     );
 
     /// @dev Emitted when Proving Network withdraws funds. Useful for troubleshooting.
     event PaymentWithdrawn(ProvingNetwork indexed by, uint256 amount);
 
     /// @dev Emitted when Proving Network address is changed. Useful for transparency and catching unintended changes.
-    event ProvingNetworkAddressChanged(
-        ProvingNetwork indexed provingNetwork,
-        address addr
-    );
+    event ProvingNetworkAddressChanged(ProvingNetwork indexed provingNetwork, address addr);
 
     /// @dev Emitted when Proving Network status is changed. Useful for transparency and serves as communication medium for Proving Networks.
     ///     Proving Networks will filter for events with their own ProvingNetwork.
     event ProvingNetworkStatusChanged(
-        ProvingNetwork indexed provingNetwork,
-        ProvingNetworkStatus status
+        ProvingNetwork indexed provingNetwork, ProvingNetworkStatus status
     );
 
     /// @dev Emitted when Proving Network is set as preferred (once per month). Useful for transparency and troubleshooting.

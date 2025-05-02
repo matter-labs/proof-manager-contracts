@@ -27,17 +27,23 @@ library Transitions {
         ProofManagerStorage.ProofRequestStatus to
     ) internal pure returns (bool) {
         if (from == ProofManagerStorage.ProofRequestStatus.Ready) {
-            return (to == ProofManagerStorage.ProofRequestStatus.Committed ||
-                to == ProofManagerStorage.ProofRequestStatus.Refused ||
-                to == ProofManagerStorage.ProofRequestStatus.Unacknowledged);
+            return (
+                to == ProofManagerStorage.ProofRequestStatus.Committed
+                    || to == ProofManagerStorage.ProofRequestStatus.Refused
+                    || to == ProofManagerStorage.ProofRequestStatus.Unacknowledged
+            );
         }
         if (from == ProofManagerStorage.ProofRequestStatus.Committed) {
-            return (to == ProofManagerStorage.ProofRequestStatus.Proven ||
-                to == ProofManagerStorage.ProofRequestStatus.TimedOut);
+            return (
+                to == ProofManagerStorage.ProofRequestStatus.Proven
+                    || to == ProofManagerStorage.ProofRequestStatus.TimedOut
+            );
         }
         if (from == ProofManagerStorage.ProofRequestStatus.Proven) {
-            return (to == ProofManagerStorage.ProofRequestStatus.Validated ||
-                to == ProofManagerStorage.ProofRequestStatus.ValidationFailed);
+            return (
+                to == ProofManagerStorage.ProofRequestStatus.Validated
+                    || to == ProofManagerStorage.ProofRequestStatus.ValidationFailed
+            );
         }
         if (from == ProofManagerStorage.ProofRequestStatus.Validated) {
             return (to == ProofManagerStorage.ProofRequestStatus.Paid);
@@ -67,10 +73,9 @@ library Transitions {
         ProofManagerStorage.ProofRequestStatus to
     ) internal pure returns (bool) {
         require(isAllowed(from, to), "invalid transition");
-        return
-            to == ProofManagerStorage.ProofRequestStatus.Unacknowledged ||
-            to == ProofManagerStorage.ProofRequestStatus.TimedOut ||
-            to == ProofManagerStorage.ProofRequestStatus.ValidationFailed ||
-            to == ProofManagerStorage.ProofRequestStatus.Validated;
+        return to == ProofManagerStorage.ProofRequestStatus.Unacknowledged
+            || to == ProofManagerStorage.ProofRequestStatus.TimedOut
+            || to == ProofManagerStorage.ProofRequestStatus.ValidationFailed
+            || to == ProofManagerStorage.ProofRequestStatus.Validated;
     }
 }
