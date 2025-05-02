@@ -2,9 +2,11 @@
 pragma solidity ^0.8.29;
 
 import "./store/ProofManagerStorage.sol";
-import "./logic/RequestManager.sol";
-import "./logic/NetworkAdmin.sol";
-import "./logic/ProvingNetworkActions.sol";
+import { Transitions } from "./lib/Transitions.sol";
+import "./interfaces/IProofManager.sol";
+// import "./logic/RequestManager.sol";
+// import "./logic/NetworkAdmin.sol";
+// import "./logic/ProvingNetworkActions.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
