@@ -6,55 +6,46 @@ import "forge-std/Test.sol";
 import "../harness/TransitionsHarness.sol";
 
 contract TransitionsTest is Test {
-    using Transitions for ProofManagerStorage.ProofRequestStatus;
+    using Transitions for ProofRequestStatus;
 
     /// @dev Ensures that all transitions possible are covered.
     function testIsAllowedMatrix() public pure {
         for (uint8 i = 0; i < 9; i++) {
             for (uint8 j = 0; j < 9; j++) {
-                ProofManagerStorage.ProofRequestStatus from =
-                    ProofManagerStorage.ProofRequestStatus(i);
-                ProofManagerStorage.ProofRequestStatus to =
-                    ProofManagerStorage.ProofRequestStatus(j);
+                ProofRequestStatus from = ProofRequestStatus(i);
+                ProofRequestStatus to = ProofRequestStatus(j);
 
                 bool expected = false;
 
                 // Ready to {Committed, Refused, Unacknowledged}
                 if (
-                    from == ProofManagerStorage.ProofRequestStatus.Ready
+                    from == ProofRequestStatus.Ready
                         && (
-                            to == ProofManagerStorage.ProofRequestStatus.Committed
-                                || to == ProofManagerStorage.ProofRequestStatus.Refused
-                                || to == ProofManagerStorage.ProofRequestStatus.Unacknowledged
+                            to == ProofRequestStatus.Committed || to == ProofRequestStatus.Refused
+                                || to == ProofRequestStatus.Unacknowledged
                         )
                 ) {
                     expected = true;
                 }
                 // Committed to {Proven, TimedOut}
                 else if (
-                    from == ProofManagerStorage.ProofRequestStatus.Committed
-                        && (
-                            to == ProofManagerStorage.ProofRequestStatus.Proven
-                                || to == ProofManagerStorage.ProofRequestStatus.TimedOut
-                        )
+                    from == ProofRequestStatus.Committed
+                        && (to == ProofRequestStatus.Proven || to == ProofRequestStatus.TimedOut)
                 ) {
                     expected = true;
                 }
                 // Proven to {Validated, ValidationFailed}
                 else if (
-                    from == ProofManagerStorage.ProofRequestStatus.Proven
+                    from == ProofRequestStatus.Proven
                         && (
-                            to == ProofManagerStorage.ProofRequestStatus.Validated
-                                || to == ProofManagerStorage.ProofRequestStatus.ValidationFailed
+                            to == ProofRequestStatus.Validated
+                                || to == ProofRequestStatus.ValidationFailed
                         )
                 ) {
                     expected = true;
                 }
                 // Validated to {Paid}
-                else if (
-                    from == ProofManagerStorage.ProofRequestStatus.Validated
-                        && to == ProofManagerStorage.ProofRequestStatus.Paid
-                ) {
+                else if (from == ProofRequestStatus.Validated && to == ProofRequestStatus.Paid) {
                     expected = true;
                 }
 
@@ -84,20 +75,17 @@ contract TransitionsTest is Test {
         TransitionsHarness harness = new TransitionsHarness();
         for (uint8 i = 0; i < 9; i++) {
             for (uint8 j = 0; j < 9; j++) {
-                ProofManagerStorage.ProofRequestStatus from =
-                    ProofManagerStorage.ProofRequestStatus(i);
-                ProofManagerStorage.ProofRequestStatus to =
-                    ProofManagerStorage.ProofRequestStatus(j);
+                ProofRequestStatus from = ProofRequestStatus(i);
+                ProofRequestStatus to = ProofRequestStatus(j);
 
                 // general transition
                 bool allowed = from.isAllowed(to);
 
                 // request manager transition -- note we don't need to check from state, as it's been checked in `isAllowed` above
                 bool expected = (
-                    to == ProofManagerStorage.ProofRequestStatus.Unacknowledged
-                        || to == ProofManagerStorage.ProofRequestStatus.TimedOut
-                        || to == ProofManagerStorage.ProofRequestStatus.ValidationFailed
-                        || to == ProofManagerStorage.ProofRequestStatus.Validated
+                    to == ProofRequestStatus.Unacknowledged || to == ProofRequestStatus.TimedOut
+                        || to == ProofRequestStatus.ValidationFailed
+                        || to == ProofRequestStatus.Validated
                 );
 
                 if (allowed) {

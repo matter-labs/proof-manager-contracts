@@ -56,7 +56,7 @@ jobs:
       - name: Filter directories from coverage
         run: |
           lcov \
-            --remove lcov.info 'test/*' 'script/*' \
+            --remove lcov.info 'test/*' 'scripts/*' \
             --output-file lcov.info \
             --rc lcov_branch_coverage=1
 

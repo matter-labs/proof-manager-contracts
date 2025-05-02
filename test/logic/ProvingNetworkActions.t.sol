@@ -14,15 +14,11 @@ contract ProverActionsTest is Base {
         vm.prank(fermah);
 
         vm.expectEmit(true, true, false, true);
-        emit ProofManagerStorage.ProofStatusChanged(
-            1, 1, ProofManagerStorage.ProofRequestStatus.Committed
-        );
-        proofManager.acknowledgeProofRequest(ProofManagerStorage.ProofRequestIdentifier(1, 1), true);
+        emit ProofStatusChanged(1, 1, ProofRequestStatus.Committed);
+        proofManager.acknowledgeProofRequest(ProofRequestIdentifier(1, 1), true);
 
         ProofManagerStorage.ProofRequest memory proofRequest = proofManager.proofRequest(1, 1);
-        assertEq(
-            uint8(proofRequest.status), uint8(ProofManagerStorage.ProofRequestStatus.Committed)
-        );
+        assertEq(uint8(proofRequest.status), uint8(ProofRequestStatus.Committed));
     }
 
     /// @dev Happy path for refusing a proof request.
@@ -31,15 +27,11 @@ contract ProverActionsTest is Base {
         vm.prank(fermah);
 
         vm.expectEmit(true, true, false, true);
-        emit ProofManagerStorage.ProofStatusChanged(
-            1, 1, ProofManagerStorage.ProofRequestStatus.Refused
-        );
-        proofManager.acknowledgeProofRequest(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1), false
-        );
+        emit ProofStatusChanged(1, 1, ProofRequestStatus.Refused);
+        proofManager.acknowledgeProofRequest(ProofRequestIdentifier(1, 1), false);
 
         ProofManagerStorage.ProofRequest memory proofRequest = proofManager.proofRequest(1, 1);
-        assertEq(uint8(proofRequest.status), uint8(ProofManagerStorage.ProofRequestStatus.Refused));
+        assertEq(uint8(proofRequest.status), uint8(ProofRequestStatus.Refused));
     }
 
     /// @dev Cannot acknowledge someone else's proof request.
@@ -47,14 +39,14 @@ contract ProverActionsTest is Base {
         submitDefaultProofRequest(1, 1);
         vm.prank(lagrange);
         vm.expectRevert("only proving network assignee");
-        proofManager.acknowledgeProofRequest(ProofManagerStorage.ProofRequestIdentifier(1, 1), true);
+        proofManager.acknowledgeProofRequest(ProofRequestIdentifier(1, 1), true);
     }
 
     /// @dev Cannot acknowledge a proof request that doesn't exist.
     function testCannotAcknowledgeUnexistingProofRequest() public {
         vm.prank(fermah);
         vm.expectRevert("only proving network assignee");
-        proofManager.acknowledgeProofRequest(ProofManagerStorage.ProofRequestIdentifier(1, 1), true);
+        proofManager.acknowledgeProofRequest(ProofRequestIdentifier(1, 1), true);
     }
 
     /// @dev Cannot acknowledge a proof request that is in any state but Ready.
@@ -62,14 +54,11 @@ contract ProverActionsTest is Base {
         submitDefaultProofRequest(1, 1);
         for (uint256 i = 1; i < 9; i++) {
             proofManager.forceSetProofRequestStatus(
-                ProofManagerStorage.ProofRequestIdentifier(1, 1),
-                ProofManagerStorage.ProofRequestStatus(i)
+                ProofRequestIdentifier(1, 1), ProofRequestStatus(i)
             );
             vm.prank(fermah);
             vm.expectRevert("cannot acknowledge proof request that is not ready");
-            proofManager.acknowledgeProofRequest(
-                ProofManagerStorage.ProofRequestIdentifier(1, 1), true
-            );
+            proofManager.acknowledgeProofRequest(ProofRequestIdentifier(1, 1), true);
         }
     }
 
@@ -79,7 +68,7 @@ contract ProverActionsTest is Base {
         vm.warp(block.timestamp + 2 minutes + 1);
         vm.prank(fermah);
         vm.expectRevert("proof request passed acknowledgement deadline");
-        proofManager.acknowledgeProofRequest(ProofManagerStorage.ProofRequestIdentifier(1, 1), true);
+        proofManager.acknowledgeProofRequest(ProofRequestIdentifier(1, 1), true);
     }
 
     /*///////////////////////////
@@ -90,19 +79,15 @@ contract ProverActionsTest is Base {
     function testSubmitProof() public {
         submitDefaultProofRequest(1, 1);
         vm.prank(fermah);
-        proofManager.acknowledgeProofRequest(ProofManagerStorage.ProofRequestIdentifier(1, 1), true);
+        proofManager.acknowledgeProofRequest(ProofRequestIdentifier(1, 1), true);
 
         vm.expectEmit(true, true, false, true);
-        emit ProofManagerStorage.ProofStatusChanged(
-            1, 1, ProofManagerStorage.ProofRequestStatus.Proven
-        );
+        emit ProofStatusChanged(1, 1, ProofRequestStatus.Proven);
         vm.prank(fermah);
-        proofManager.submitProof(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 3e6
-        );
+        proofManager.submitProof(ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 3e6);
 
         ProofManagerStorage.ProofRequest memory proofRequest = proofManager.proofRequest(1, 1);
-        assertEq(uint8(proofRequest.status), uint8(ProofManagerStorage.ProofRequestStatus.Proven));
+        assertEq(uint8(proofRequest.status), uint8(ProofRequestStatus.Proven));
         assertEq(proofRequest.proof, bytes("such proof much wow"));
         assertEq(proofRequest.provingNetworkPrice, 3e6);
     }
@@ -111,19 +96,15 @@ contract ProverActionsTest is Base {
     function testSubmitProofPriceCannotBeHigherThanMaxReward() public {
         submitDefaultProofRequest(1, 1);
         vm.prank(fermah);
-        proofManager.acknowledgeProofRequest(ProofManagerStorage.ProofRequestIdentifier(1, 1), true);
+        proofManager.acknowledgeProofRequest(ProofRequestIdentifier(1, 1), true);
 
         vm.expectEmit(true, true, false, true);
-        emit ProofManagerStorage.ProofStatusChanged(
-            1, 1, ProofManagerStorage.ProofRequestStatus.Proven
-        );
+        emit ProofStatusChanged(1, 1, ProofRequestStatus.Proven);
         vm.prank(fermah);
-        proofManager.submitProof(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 5e6
-        );
+        proofManager.submitProof(ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 5e6);
 
         ProofManagerStorage.ProofRequest memory proofRequest = proofManager.proofRequest(1, 1);
-        assertEq(uint8(proofRequest.status), uint8(ProofManagerStorage.ProofRequestStatus.Proven));
+        assertEq(uint8(proofRequest.status), uint8(ProofRequestStatus.Proven));
         assertEq(proofRequest.proof, bytes("such proof much wow"));
         assertEq(proofRequest.provingNetworkPrice, 4e6);
     }
@@ -133,18 +114,14 @@ contract ProverActionsTest is Base {
         submitDefaultProofRequest(1, 1);
         vm.prank(lagrange);
         vm.expectRevert("only proving network assignee");
-        proofManager.submitProof(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 3e6
-        );
+        proofManager.submitProof(ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 3e6);
     }
 
     /// @dev Cannot submit proof for a request that doesn't exist.
     function testCannontSubmitProofForUnexistentProofRequest() public {
         vm.prank(fermah);
         vm.expectRevert("only proving network assignee");
-        proofManager.submitProof(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 3e6
-        );
+        proofManager.submitProof(ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 3e6);
     }
 
     /// @dev Cannot submit proof for a request that is not in the Committed state.
@@ -152,22 +129,18 @@ contract ProverActionsTest is Base {
         submitDefaultProofRequest(1, 1);
         vm.prank(fermah);
         vm.expectRevert("cannot submit proof for non committed proof request");
-        proofManager.submitProof(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 3e6
-        );
+        proofManager.submitProof(ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 3e6);
     }
 
     /// @dev Cannot submit proof for a request that is past the proving deadline.
     function testCannotSubmitProofForTimedOutProofRequest() public {
         submitDefaultProofRequest(1, 1);
         vm.prank(fermah);
-        proofManager.acknowledgeProofRequest(ProofManagerStorage.ProofRequestIdentifier(1, 1), true);
+        proofManager.acknowledgeProofRequest(ProofRequestIdentifier(1, 1), true);
         vm.warp(block.timestamp + 1 hours + 1);
         vm.prank(fermah);
         vm.expectRevert("proof request passed proving deadline");
-        proofManager.submitProof(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 3e6
-        );
+        proofManager.submitProof(ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 3e6);
     }
 
     /*////////////////////////
@@ -178,62 +151,51 @@ contract ProverActionsTest is Base {
     ///     NOTE: Can be treated as an "end to end" test.
     function testWithdrawWithinLimit() public {
         proofManager.submitProofRequest(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1),
-            ProofManagerStorage.ProofRequestParams(
-                "https://console.google.com/buckets/...", 0, 27, 0, 3600, 100e6
-            )
+            ProofRequestIdentifier(1, 1),
+            ProofRequestParams("https://console.google.com/buckets/...", 0, 27, 0, 3600, 100e6)
         );
         proofManager.submitProofRequest(
-            ProofManagerStorage.ProofRequestIdentifier(1, 2),
-            ProofManagerStorage.ProofRequestParams(
-                "https://console.google.com/buckets/...", 0, 27, 0, 3600, 250e6
-            )
+            ProofRequestIdentifier(1, 2),
+            ProofRequestParams("https://console.google.com/buckets/...", 0, 27, 0, 3600, 250e6)
         );
         proofManager.forceSetProofRequestAssignee(
-            ProofManagerStorage.ProofRequestIdentifier(1, 2),
-            ProofManagerStorage.ProvingNetwork.Fermah
+            ProofRequestIdentifier(1, 2), ProvingNetwork.Fermah
         );
 
         vm.prank(fermah);
-        proofManager.acknowledgeProofRequest(ProofManagerStorage.ProofRequestIdentifier(1, 1), true);
+        proofManager.acknowledgeProofRequest(ProofRequestIdentifier(1, 1), true);
         vm.prank(fermah);
-        proofManager.acknowledgeProofRequest(ProofManagerStorage.ProofRequestIdentifier(1, 2), true);
+        proofManager.acknowledgeProofRequest(ProofRequestIdentifier(1, 2), true);
 
         vm.prank(fermah);
-        proofManager.submitProof(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 50e6
-        );
+        proofManager.submitProof(ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 50e6);
 
         vm.prank(fermah);
-        proofManager.submitProof(
-            ProofManagerStorage.ProofRequestIdentifier(1, 2), bytes("such proof much wow"), 75e6
-        );
+        proofManager.submitProof(ProofRequestIdentifier(1, 2), bytes("such proof much wow"), 75e6);
 
-        proofManager.markProof(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1),
-            ProofManagerStorage.ProofRequestStatus.Validated
+        proofManager.updateProofRequestStatus(
+            ProofRequestIdentifier(1, 1), ProofRequestStatus.Validated
         );
-        proofManager.markProof(
-            ProofManagerStorage.ProofRequestIdentifier(1, 2),
-            ProofManagerStorage.ProofRequestStatus.Validated
+        proofManager.updateProofRequestStatus(
+            ProofRequestIdentifier(1, 2), ProofRequestStatus.Validated
         );
 
         assertEq(usdc.balanceOf(fermah), 0);
 
         ProofManagerStorage.ProvingNetworkInfo memory info =
-            proofManager.provingNetworkInfo(ProofManagerStorage.ProvingNetwork.Fermah);
+            proofManager.provingNetworkInfo(ProvingNetwork.Fermah);
         assertEq(info.unclaimedProofs.length, 2);
         assertEq(info.paymentDue, 125e6);
 
         vm.expectEmit(true, true, false, true);
-        emit ProofManagerStorage.PaymentWithdrawn(ProofManagerStorage.ProvingNetwork.Fermah, 125e6);
+        emit PaymentWithdrawn(ProvingNetwork.Fermah, 125e6);
 
         vm.prank(fermah);
         proofManager.withdraw();
 
         assertEq(usdc.balanceOf(fermah), 125e6);
 
-        info = proofManager.provingNetworkInfo(ProofManagerStorage.ProvingNetwork.Fermah);
+        info = proofManager.provingNetworkInfo(ProvingNetwork.Fermah);
         assertEq(info.unclaimedProofs.length, 0);
         assertEq(info.paymentDue, 0);
     }
@@ -241,138 +203,118 @@ contract ProverActionsTest is Base {
     /// @dev Checks what happens when the price is exactly limit at withdrawal. 1 extra proof remaining.
     ///     NOTE: Can be treated as an "end to end" test.
     function testWithdrawAndExactlyLimitCanBeWithdrawn() public {
-        proofManager.setPreferredNetwork(ProofManagerStorage.ProvingNetwork.Fermah);
+        proofManager.updatePreferredProvingNetwork(ProvingNetwork.Fermah);
         uint256 pricePerProof = 6_250e6;
         for (uint256 i = 0; i < 5; i++) {
             proofManager.submitProofRequest(
-                ProofManagerStorage.ProofRequestIdentifier(1, i),
-                ProofManagerStorage.ProofRequestParams(
+                ProofRequestIdentifier(1, i),
+                ProofRequestParams(
                     "https://console.google.com/buckets/...", 0, 27, 0, 3600, pricePerProof
                 )
             );
             proofManager.forceSetProofRequestAssignee(
-                ProofManagerStorage.ProofRequestIdentifier(1, i),
-                ProofManagerStorage.ProvingNetwork.Fermah
+                ProofRequestIdentifier(1, i), ProvingNetwork.Fermah
             );
 
             vm.prank(fermah);
-            proofManager.acknowledgeProofRequest(
-                ProofManagerStorage.ProofRequestIdentifier(1, i), true
-            );
+            proofManager.acknowledgeProofRequest(ProofRequestIdentifier(1, i), true);
             vm.prank(fermah);
             proofManager.submitProof(
-                ProofManagerStorage.ProofRequestIdentifier(1, i),
-                bytes("such proof much wow"),
-                pricePerProof
+                ProofRequestIdentifier(1, i), bytes("such proof much wow"), pricePerProof
             );
-            proofManager.markProof(
-                ProofManagerStorage.ProofRequestIdentifier(1, i),
-                ProofManagerStorage.ProofRequestStatus.Validated
+            proofManager.updateProofRequestStatus(
+                ProofRequestIdentifier(1, i), ProofRequestStatus.Validated
             );
         }
 
         assertEq(usdc.balanceOf(fermah), 0);
 
         ProofManagerStorage.ProvingNetworkInfo memory info =
-            proofManager.provingNetworkInfo(ProofManagerStorage.ProvingNetwork.Fermah);
+            proofManager.provingNetworkInfo(ProvingNetwork.Fermah);
         assertEq(info.unclaimedProofs.length, 5);
         assertEq(info.paymentDue, pricePerProof * 5);
 
         vm.expectEmit(true, true, false, true);
-        emit ProofManagerStorage.PaymentWithdrawn(
-            ProofManagerStorage.ProvingNetwork.Fermah, pricePerProof * 4
-        );
+        emit PaymentWithdrawn(ProvingNetwork.Fermah, pricePerProof * 4);
 
         vm.prank(fermah);
         proofManager.withdraw();
 
         assertEq(usdc.balanceOf(fermah), pricePerProof * 4);
 
-        info = proofManager.provingNetworkInfo(ProofManagerStorage.ProvingNetwork.Fermah);
+        info = proofManager.provingNetworkInfo(ProvingNetwork.Fermah);
 
         assertEq(info.unclaimedProofs.length, 1);
         assertEq(info.paymentDue, pricePerProof);
 
         vm.expectEmit(true, true, false, true);
-        emit ProofManagerStorage.PaymentWithdrawn(
-            ProofManagerStorage.ProvingNetwork.Fermah, pricePerProof
-        );
+        emit PaymentWithdrawn(ProvingNetwork.Fermah, pricePerProof);
 
         vm.prank(fermah);
         proofManager.withdraw();
 
         assertEq(usdc.balanceOf(fermah), pricePerProof * 5);
 
-        info = proofManager.provingNetworkInfo(ProofManagerStorage.ProvingNetwork.Fermah);
+        info = proofManager.provingNetworkInfo(ProvingNetwork.Fermah);
         assertEq(info.unclaimedProofs.length, 0);
         assertEq(info.paymentDue, 0);
     }
 
     /// @dev Ensures that if the next proof is more expensive than limit, it breaks. 2 extra proofs remaining.
     function testWithdrawAndNeedsBreakDueToWithdrawLimit() public {
-        proofManager.setPreferredNetwork(ProofManagerStorage.ProvingNetwork.Fermah);
+        proofManager.updatePreferredProvingNetwork(ProvingNetwork.Fermah);
         uint256 pricePerProof = 7_000e6;
         for (uint256 i = 0; i < 5; i++) {
             proofManager.submitProofRequest(
-                ProofManagerStorage.ProofRequestIdentifier(1, i),
-                ProofManagerStorage.ProofRequestParams(
+                ProofRequestIdentifier(1, i),
+                ProofRequestParams(
                     "https://console.google.com/buckets/...", 0, 27, 0, 3600, pricePerProof
                 )
             );
             proofManager.forceSetProofRequestAssignee(
-                ProofManagerStorage.ProofRequestIdentifier(1, i),
-                ProofManagerStorage.ProvingNetwork.Fermah
+                ProofRequestIdentifier(1, i), ProvingNetwork.Fermah
             );
 
             vm.prank(fermah);
-            proofManager.acknowledgeProofRequest(
-                ProofManagerStorage.ProofRequestIdentifier(1, i), true
-            );
+            proofManager.acknowledgeProofRequest(ProofRequestIdentifier(1, i), true);
             vm.prank(fermah);
             proofManager.submitProof(
-                ProofManagerStorage.ProofRequestIdentifier(1, i),
-                bytes("such proof much wow"),
-                pricePerProof
+                ProofRequestIdentifier(1, i), bytes("such proof much wow"), pricePerProof
             );
-            proofManager.markProof(
-                ProofManagerStorage.ProofRequestIdentifier(1, i),
-                ProofManagerStorage.ProofRequestStatus.Validated
+            proofManager.updateProofRequestStatus(
+                ProofRequestIdentifier(1, i), ProofRequestStatus.Validated
             );
         }
 
         assertEq(usdc.balanceOf(fermah), 0);
 
         ProofManagerStorage.ProvingNetworkInfo memory info =
-            proofManager.provingNetworkInfo(ProofManagerStorage.ProvingNetwork.Fermah);
+            proofManager.provingNetworkInfo(ProvingNetwork.Fermah);
         assertEq(info.unclaimedProofs.length, 5);
         assertEq(info.paymentDue, pricePerProof * 5);
 
         vm.expectEmit(true, true, false, true);
-        emit ProofManagerStorage.PaymentWithdrawn(
-            ProofManagerStorage.ProvingNetwork.Fermah, pricePerProof * 3
-        );
+        emit PaymentWithdrawn(ProvingNetwork.Fermah, pricePerProof * 3);
 
         vm.prank(fermah);
         proofManager.withdraw();
 
         assertEq(usdc.balanceOf(fermah), pricePerProof * 3);
 
-        info = proofManager.provingNetworkInfo(ProofManagerStorage.ProvingNetwork.Fermah);
+        info = proofManager.provingNetworkInfo(ProvingNetwork.Fermah);
 
         assertEq(info.unclaimedProofs.length, 2);
         assertEq(info.paymentDue, pricePerProof * 2);
 
         vm.expectEmit(true, true, false, true);
-        emit ProofManagerStorage.PaymentWithdrawn(
-            ProofManagerStorage.ProvingNetwork.Fermah, pricePerProof * 2
-        );
+        emit PaymentWithdrawn(ProvingNetwork.Fermah, pricePerProof * 2);
 
         vm.prank(fermah);
         proofManager.withdraw();
 
         assertEq(usdc.balanceOf(fermah), pricePerProof * 5);
 
-        info = proofManager.provingNetworkInfo(ProofManagerStorage.ProvingNetwork.Fermah);
+        info = proofManager.provingNetworkInfo(ProvingNetwork.Fermah);
         assertEq(info.unclaimedProofs.length, 0);
         assertEq(info.paymentDue, 0);
     }
@@ -380,20 +322,15 @@ contract ProverActionsTest is Base {
     /// @dev Ensures only proving network can call withdraw.
     function testOnlyProvingNetworkCanWithdraw() public {
         proofManager.submitProofRequest(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1),
-            ProofManagerStorage.ProofRequestParams(
-                "https://console.google.com/buckets/...", 0, 27, 0, 3600, 4e6
-            )
+            ProofRequestIdentifier(1, 1),
+            ProofRequestParams("https://console.google.com/buckets/...", 0, 27, 0, 3600, 4e6)
         );
         vm.prank(fermah);
-        proofManager.acknowledgeProofRequest(ProofManagerStorage.ProofRequestIdentifier(1, 1), true);
+        proofManager.acknowledgeProofRequest(ProofRequestIdentifier(1, 1), true);
         vm.prank(fermah);
-        proofManager.submitProof(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 3e6
-        );
-        proofManager.markProof(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1),
-            ProofManagerStorage.ProofRequestStatus.Validated
+        proofManager.submitProof(ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 3e6);
+        proofManager.updateProofRequestStatus(
+            ProofRequestIdentifier(1, 1), ProofRequestStatus.Validated
         );
         vm.expectRevert("only proving network");
         proofManager.withdraw();

@@ -10,8 +10,8 @@ contract RequestManagerTest is Base {
 
     /// @dev Helper DTO for testing proof assignment logic.
     struct SubmitProofExpected {
-        ProofManagerStorage.ProvingNetwork network;
-        ProofManagerStorage.ProofRequestStatus status;
+        ProvingNetwork network;
+        ProofRequestStatus status;
     }
 
     /*////////////////////////////////////
@@ -21,21 +21,14 @@ contract RequestManagerTest is Base {
     /// @dev Happy path for submitting a proof request.
     function testSubmitProofRequest() public {
         vm.expectEmit(true, true, false, true);
-        emit ProofManagerStorage.ProofRequestSubmitted(
-            1,
-            1,
-            ProofManagerStorage.ProvingNetwork.Fermah,
-            ProofManagerStorage.ProofRequestStatus.Ready
-        );
+        emit ProofRequestSubmitted(1, 1, ProvingNetwork.Fermah, ProofRequestStatus.Ready);
 
         proofManager.submitProofRequest(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1),
-            ProofManagerStorage.ProofRequestParams(
-                "https://console.google.com/buckets/...", 0, 27, 0, 3600, 4e6
-            )
+            ProofRequestIdentifier(1, 1),
+            ProofRequestParams("https://console.google.com/buckets/...", 0, 27, 0, 3600, 4e6)
         );
         assertProofRequest(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1),
+            ProofRequestIdentifier(1, 1),
             ProofManagerStorage.ProofRequest(
                 "https://console.google.com/buckets/...",
                 0,
@@ -44,8 +37,8 @@ contract RequestManagerTest is Base {
                 block.timestamp,
                 3600,
                 4e6,
-                ProofManagerStorage.ProofRequestStatus.Ready,
-                ProofManagerStorage.ProvingNetwork.Fermah,
+                ProofRequestStatus.Ready,
+                ProvingNetwork.Fermah,
                 0,
                 bytes("")
             )
@@ -70,10 +63,8 @@ contract RequestManagerTest is Base {
     function testCannotSubmitProofWithZeroTimeout() public {
         vm.expectRevert("proof generation timeout must be bigger than 0");
         proofManager.submitProofRequest(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1),
-            ProofManagerStorage.ProofRequestParams(
-                "https://console.google.com/buckets/...", 0, 27, 0, 0, 4e6
-            )
+            ProofRequestIdentifier(1, 1),
+            ProofRequestParams("https://console.google.com/buckets/...", 0, 27, 0, 0, 4e6)
         );
     }
 
@@ -81,8 +72,8 @@ contract RequestManagerTest is Base {
     function testCannotSubmitProofWithMaxRewardHigherThanWithdrawalLimit() public {
         vm.expectRevert("max reward is higher than maximum withdraw limit");
         proofManager.submitProofRequest(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1),
-            ProofManagerStorage.ProofRequestParams(
+            ProofRequestIdentifier(1, 1),
+            ProofRequestParams(
                 "https://console.google.com/buckets/...", 0, 27, 0, 3600, 25_000e6 + 1
             )
         );
@@ -92,73 +83,48 @@ contract RequestManagerTest is Base {
     function testSubmitProofAssignmentLogic() public {
         SubmitProofExpected[8] memory outputs = [
             // request 0, fermah inactive, lagrange active, preferred none
-            SubmitProofExpected(
-                ProofManagerStorage.ProvingNetwork.Fermah,
-                ProofManagerStorage.ProofRequestStatus.Refused
-            ),
+            SubmitProofExpected(ProvingNetwork.Fermah, ProofRequestStatus.Refused),
             // request 1, fermah inactive, lagrange active, preferred none
-            SubmitProofExpected(
-                ProofManagerStorage.ProvingNetwork.Lagrange,
-                ProofManagerStorage.ProofRequestStatus.Ready
-            ),
+            SubmitProofExpected(ProvingNetwork.Lagrange, ProofRequestStatus.Ready),
             // request 2, fermah inactive, lagrange active, preferred none
-            SubmitProofExpected(
-                ProofManagerStorage.ProvingNetwork.None, ProofManagerStorage.ProofRequestStatus.Refused
-            ),
+            SubmitProofExpected(ProvingNetwork.None, ProofRequestStatus.Refused),
             // request 3, fermah inactive, lagrange active, preferred fermah
-            SubmitProofExpected(
-                ProofManagerStorage.ProvingNetwork.Fermah,
-                ProofManagerStorage.ProofRequestStatus.Refused
-            ),
+            SubmitProofExpected(ProvingNetwork.Fermah, ProofRequestStatus.Refused),
             // request 4, fermah active, lagrange active, preferred fermah
-            SubmitProofExpected(
-                ProofManagerStorage.ProvingNetwork.Fermah, ProofManagerStorage.ProofRequestStatus.Ready
-            ),
+            SubmitProofExpected(ProvingNetwork.Fermah, ProofRequestStatus.Ready),
             // request 5, fermah active, lagrange active, preferred fermah
-            SubmitProofExpected(
-                ProofManagerStorage.ProvingNetwork.Lagrange,
-                ProofManagerStorage.ProofRequestStatus.Ready
-            ),
+            SubmitProofExpected(ProvingNetwork.Lagrange, ProofRequestStatus.Ready),
             // request 6, fermah active, lagrange active, preferred fermah
-            SubmitProofExpected(
-                ProofManagerStorage.ProvingNetwork.Fermah, ProofManagerStorage.ProofRequestStatus.Ready
-            ),
+            SubmitProofExpected(ProvingNetwork.Fermah, ProofRequestStatus.Ready),
             // request 7, fermah active, lagrange active, preferred lagrange
-            SubmitProofExpected(
-                ProofManagerStorage.ProvingNetwork.Lagrange,
-                ProofManagerStorage.ProofRequestStatus.Ready
-            )
+            SubmitProofExpected(ProvingNetwork.Lagrange, ProofRequestStatus.Ready)
         ];
 
-        proofManager.markNetwork(
-            ProofManagerStorage.ProvingNetwork.Fermah,
-            ProofManagerStorage.ProvingNetworkStatus.Inactive
+        proofManager.updateProvingNetworkStatus(
+            ProvingNetwork.Fermah, ProvingNetworkStatus.Inactive
         );
 
         for (uint256 i = 0; i < 3; ++i) {
             submitDefaultProofRequest(1, i);
         }
 
-        proofManager.setPreferredNetwork(ProofManagerStorage.ProvingNetwork.Fermah);
+        proofManager.updatePreferredProvingNetwork(ProvingNetwork.Fermah);
 
         submitDefaultProofRequest(1, 3);
 
-        proofManager.markNetwork(
-            ProofManagerStorage.ProvingNetwork.Fermah,
-            ProofManagerStorage.ProvingNetworkStatus.Active
-        );
+        proofManager.updateProvingNetworkStatus(ProvingNetwork.Fermah, ProvingNetworkStatus.Active);
 
         for (uint256 i = 4; i < 7; ++i) {
             submitDefaultProofRequest(1, i);
         }
 
-        proofManager.setPreferredNetwork(ProofManagerStorage.ProvingNetwork.Lagrange);
+        proofManager.updatePreferredProvingNetwork(ProvingNetwork.Lagrange);
 
         submitDefaultProofRequest(1, 7);
 
         for (uint256 i = 0; i < 8; ++i) {
             assertProofRequest(
-                ProofManagerStorage.ProofRequestIdentifier(1, i),
+                ProofRequestIdentifier(1, i),
                 ProofManagerStorage.ProofRequest(
                     "https://console.google.com/buckets/...",
                     0,
@@ -185,20 +151,16 @@ contract RequestManagerTest is Base {
         submitDefaultProofRequest(1, 1);
 
         proofManager.forceSetProofRequestStatus(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1),
-            ProofManagerStorage.ProofRequestStatus.Proven
+            ProofRequestIdentifier(1, 1), ProofRequestStatus.Proven
         );
 
         vm.expectEmit(true, true, false, true);
-        emit ProofManagerStorage.ProofStatusChanged(
-            1, 1, ProofManagerStorage.ProofRequestStatus.Validated
-        );
-        proofManager.markProof(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1),
-            ProofManagerStorage.ProofRequestStatus.Validated
+        emit ProofStatusChanged(1, 1, ProofRequestStatus.Validated);
+        proofManager.updateProofRequestStatus(
+            ProofRequestIdentifier(1, 1), ProofRequestStatus.Validated
         );
         assertProofRequest(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1),
+            ProofRequestIdentifier(1, 1),
             ProofManagerStorage.ProofRequest(
                 "https://console.google.com/buckets/...",
                 0,
@@ -207,8 +169,8 @@ contract RequestManagerTest is Base {
                 block.timestamp,
                 3600,
                 4e6,
-                ProofManagerStorage.ProofRequestStatus.Validated,
-                ProofManagerStorage.ProvingNetwork.Fermah,
+                ProofRequestStatus.Validated,
+                ProvingNetwork.Fermah,
                 0,
                 bytes("")
             )
@@ -219,14 +181,12 @@ contract RequestManagerTest is Base {
     function testNonOwnerCannotMarkProof() public {
         submitDefaultProofRequest(1, 1);
         proofManager.forceSetProofRequestStatus(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1),
-            ProofManagerStorage.ProofRequestStatus.Proven
+            ProofRequestIdentifier(1, 1), ProofRequestStatus.Proven
         );
         vm.prank(nonOwner);
         expectOwnableRevert(nonOwner);
-        proofManager.markProof(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1),
-            ProofManagerStorage.ProofRequestStatus.Validated
+        proofManager.updateProofRequestStatus(
+            ProofRequestIdentifier(1, 1), ProofRequestStatus.Validated
         );
     }
 
@@ -235,9 +195,8 @@ contract RequestManagerTest is Base {
         submitDefaultProofRequest(1, 1);
 
         vm.expectRevert("transition not allowed for request manager");
-        proofManager.markProof(
-            ProofManagerStorage.ProofRequestIdentifier(1, 1),
-            ProofManagerStorage.ProofRequestStatus.Committed
+        proofManager.updateProofRequestStatus(
+            ProofRequestIdentifier(1, 1), ProofRequestStatus.Committed
         );
     }
 
@@ -247,15 +206,12 @@ contract RequestManagerTest is Base {
             uint256 price = (i + 1) * 1e6;
             // submit request
             proofManager.submitProofRequest(
-                ProofManagerStorage.ProofRequestIdentifier(1, i),
-                ProofManagerStorage.ProofRequestParams(
-                    "https://console.google.com/buckets/...", 0, 27, 0, 3600, price
-                )
+                ProofRequestIdentifier(1, i),
+                ProofRequestParams("https://console.google.com/buckets/...", 0, 27, 0, 3600, price)
             );
             // pretend it's been committed
             proofManager.forceSetProofRequestStatus(
-                ProofManagerStorage.ProofRequestIdentifier(1, i),
-                ProofManagerStorage.ProofRequestStatus.Committed
+                ProofRequestIdentifier(1, i), ProofRequestStatus.Committed
             );
 
             if (i % 4 < 2) {
@@ -266,35 +222,31 @@ contract RequestManagerTest is Base {
                 }
                 // this can't be pretended, as we need to set the price
                 proofManager.submitProof(
-                    ProofManagerStorage.ProofRequestIdentifier(1, i),
-                    bytes("such proof much wow"),
-                    price
+                    ProofRequestIdentifier(1, i), bytes("such proof much wow"), price
                 );
                 // mark it as validated
-                proofManager.markProof(
-                    ProofManagerStorage.ProofRequestIdentifier(1, i),
-                    ProofManagerStorage.ProofRequestStatus.Validated
+                proofManager.updateProofRequestStatus(
+                    ProofRequestIdentifier(1, i), ProofRequestStatus.Validated
                 );
             }
         }
 
-        ProofManagerStorage.ProofRequestIdentifier[] memory identifiers =
-            new ProofManagerStorage.ProofRequestIdentifier[](2);
-        identifiers[0] = ProofManagerStorage.ProofRequestIdentifier(1, 0);
-        identifiers[1] = ProofManagerStorage.ProofRequestIdentifier(1, 4);
+        ProofRequestIdentifier[] memory identifiers = new ProofRequestIdentifier[](2);
+        identifiers[0] = ProofRequestIdentifier(1, 0);
+        identifiers[1] = ProofRequestIdentifier(1, 4);
         assertProvingNetworkInfo(
-            ProofManagerStorage.ProvingNetwork.Fermah,
+            ProvingNetwork.Fermah,
             ProofManagerStorage.ProvingNetworkInfo(
-                fermah, ProofManagerStorage.ProvingNetworkStatus.Active, identifiers, 6e6
+                fermah, ProvingNetworkStatus.Active, identifiers, 6e6
             )
         );
-        identifiers = new ProofManagerStorage.ProofRequestIdentifier[](2);
-        identifiers[0] = ProofManagerStorage.ProofRequestIdentifier(1, 1);
-        identifiers[1] = ProofManagerStorage.ProofRequestIdentifier(1, 5);
+        identifiers = new ProofRequestIdentifier[](2);
+        identifiers[0] = ProofRequestIdentifier(1, 1);
+        identifiers[1] = ProofRequestIdentifier(1, 5);
         assertProvingNetworkInfo(
-            ProofManagerStorage.ProvingNetwork.Lagrange,
+            ProvingNetwork.Lagrange,
             ProofManagerStorage.ProvingNetworkInfo(
-                lagrange, ProofManagerStorage.ProvingNetworkStatus.Active, identifiers, 8e6
+                lagrange, ProvingNetworkStatus.Active, identifiers, 8e6
             )
         );
     }

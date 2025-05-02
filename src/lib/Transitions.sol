@@ -1,7 +1,7 @@
 // SPDX‑License‑Identifier: MIT
 pragma solidity ^0.8.29;
 
-import "../store/ProofManagerStorage.sol";
+import { ProofRequestStatus } from "../interfaces/IProofManager.sol";
 
 /// @author Matter Labs
 /// @notice This library contains transition logic for proof request status lifecycle
@@ -22,31 +22,25 @@ library Transitions {
     /// @param from The current status of the proof request.
     /// @param to The new status of the proof request after transition.
     /// @return True if the transition is allowed, false otherwise.
-    function isAllowed(
-        ProofManagerStorage.ProofRequestStatus from,
-        ProofManagerStorage.ProofRequestStatus to
-    ) internal pure returns (bool) {
-        if (from == ProofManagerStorage.ProofRequestStatus.Ready) {
+    function isAllowed(ProofRequestStatus from, ProofRequestStatus to)
+        internal
+        pure
+        returns (bool)
+    {
+        if (from == ProofRequestStatus.Ready) {
             return (
-                to == ProofManagerStorage.ProofRequestStatus.Committed
-                    || to == ProofManagerStorage.ProofRequestStatus.Refused
-                    || to == ProofManagerStorage.ProofRequestStatus.Unacknowledged
+                to == ProofRequestStatus.Committed || to == ProofRequestStatus.Refused
+                    || to == ProofRequestStatus.Unacknowledged
             );
         }
-        if (from == ProofManagerStorage.ProofRequestStatus.Committed) {
-            return (
-                to == ProofManagerStorage.ProofRequestStatus.Proven
-                    || to == ProofManagerStorage.ProofRequestStatus.TimedOut
-            );
+        if (from == ProofRequestStatus.Committed) {
+            return (to == ProofRequestStatus.Proven || to == ProofRequestStatus.TimedOut);
         }
-        if (from == ProofManagerStorage.ProofRequestStatus.Proven) {
-            return (
-                to == ProofManagerStorage.ProofRequestStatus.Validated
-                    || to == ProofManagerStorage.ProofRequestStatus.ValidationFailed
-            );
+        if (from == ProofRequestStatus.Proven) {
+            return (to == ProofRequestStatus.Validated || to == ProofRequestStatus.ValidationFailed);
         }
-        if (from == ProofManagerStorage.ProofRequestStatus.Validated) {
-            return (to == ProofManagerStorage.ProofRequestStatus.Paid);
+        if (from == ProofRequestStatus.Validated) {
+            return (to == ProofRequestStatus.Paid);
         }
         return false;
     }
@@ -68,14 +62,13 @@ library Transitions {
     /// @param from The current status of the proof request.
     /// @param to The new status of the proof request after transition.
     /// @return True if the transition is allowed, false otherwise.
-    function isRequestManagerAllowed(
-        ProofManagerStorage.ProofRequestStatus from,
-        ProofManagerStorage.ProofRequestStatus to
-    ) internal pure returns (bool) {
+    function isRequestManagerAllowed(ProofRequestStatus from, ProofRequestStatus to)
+        internal
+        pure
+        returns (bool)
+    {
         require(isAllowed(from, to), "invalid transition");
-        return to == ProofManagerStorage.ProofRequestStatus.Unacknowledged
-            || to == ProofManagerStorage.ProofRequestStatus.TimedOut
-            || to == ProofManagerStorage.ProofRequestStatus.ValidationFailed
-            || to == ProofManagerStorage.ProofRequestStatus.Validated;
+        return to == ProofRequestStatus.Unacknowledged || to == ProofRequestStatus.TimedOut
+            || to == ProofRequestStatus.ValidationFailed || to == ProofRequestStatus.Validated;
     }
 }

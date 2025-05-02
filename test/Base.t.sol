@@ -75,7 +75,7 @@ abstract contract Base is Test {
 
     /// @dev Asserts that set proving network info matches expected one.
     function assertProvingNetworkInfo(
-        ProofManagerStorage.ProvingNetwork network,
+        ProvingNetwork network,
         ProofManagerStorage.ProvingNetworkInfo memory expectedInfo
     ) internal view {
         ProofManagerStorage.ProvingNetworkInfo memory info =
@@ -101,7 +101,7 @@ abstract contract Base is Test {
 
     /// @dev Asserts that set proof request matches expected one.
     function assertProofRequest(
-        ProofManagerStorage.ProofRequestIdentifier memory id,
+        ProofRequestIdentifier memory id,
         ProofManagerStorage.ProofRequest memory expectedProofRequest
     ) internal view {
         ProofManagerStorage.ProofRequest memory proofRequest =
@@ -165,13 +165,10 @@ abstract contract Base is Test {
 
     /// @dev Submits a default proof request to the proof manager.
     function submitDefaultProofRequest(uint256 chainId, uint256 blockNumber) internal {
-        ProofManagerStorage.ProofRequestIdentifier memory id = ProofManagerStorage
-            .ProofRequestIdentifier({ chainId: chainId, blockNumber: blockNumber });
+        ProofRequestIdentifier memory id =
+            ProofRequestIdentifier({ chainId: chainId, blockNumber: blockNumber });
         proofManager.submitProofRequest(
-            id,
-            ProofManagerStorage.ProofRequestParams(
-                "https://console.google.com/buckets/...", 0, 27, 0, 3600, 4e6
-            )
+            id, ProofRequestParams("https://console.google.com/buckets/...", 0, 27, 0, 3600, 4e6)
         );
     }
 

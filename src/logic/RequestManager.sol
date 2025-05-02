@@ -1,6 +1,12 @@
 // SPDX‑License‑Identifier: MIT
 pragma solidity ^0.8.29;
 
+import {
+    ProofRequestSubmitted,
+    ProofRequestIdentifier,
+    ProofRequestParams,
+    ProofStatusChanged
+} from "../interfaces/IProofManager.sol";
 import "../store/ProofManagerStorage.sol";
 import "../lib/Transitions.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -68,7 +74,7 @@ abstract contract RequestManager is ProofManagerStorage, Ownable {
 
     /// @dev Changes proof request's status. Used for timeout scenarios (unacknowledged/timed out) or validation from L1 (validated/validation failed).
     ///     NOTE: When a proof request is marked as validated, the proof will be due for payment to the proving network that proved it.
-    function markProof(ProofRequestIdentifier calldata id, ProofRequestStatus status)
+    function updateProofRequestStatus(ProofRequestIdentifier calldata id, ProofRequestStatus status)
         external
         onlyOwner
     {

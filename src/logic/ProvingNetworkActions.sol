@@ -1,6 +1,7 @@
 // SPDX‑License‑Identifier: MIT
 pragma solidity ^0.8.29;
 
+import "../interfaces/IProofManager.sol";
 import "../store/ProofManagerStorage.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 

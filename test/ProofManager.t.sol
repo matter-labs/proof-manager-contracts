@@ -9,27 +9,21 @@ contract ProofManagerTest is Base {
         assertEq(proofManager.owner(), owner, "owner must be contract deployer");
 
         assertProvingNetworkInfo(
-            ProofManagerStorage.ProvingNetwork.Fermah,
+            ProvingNetwork.Fermah,
             ProofManagerStorage.ProvingNetworkInfo(
-                fermah,
-                ProofManagerStorage.ProvingNetworkStatus.Active,
-                new ProofManager.ProofRequestIdentifier[](0),
-                0
+                fermah, ProvingNetworkStatus.Active, new ProofRequestIdentifier[](0), 0
             )
         );
         assertProvingNetworkInfo(
-            ProofManagerStorage.ProvingNetwork.Lagrange,
+            ProvingNetwork.Lagrange,
             ProofManagerStorage.ProvingNetworkInfo(
-                lagrange,
-                ProofManagerStorage.ProvingNetworkStatus.Active,
-                new ProofManager.ProofRequestIdentifier[](0),
-                0
+                lagrange, ProvingNetworkStatus.Active, new ProofRequestIdentifier[](0), 0
             )
         );
 
         assertEq(
             uint8(proofManager.preferredNetwork()),
-            uint8(ProofManagerStorage.ProvingNetwork.None),
+            uint8(ProvingNetwork.None),
             "preferred network should be None"
         );
     }
@@ -37,26 +31,16 @@ contract ProofManagerTest is Base {
     /// @dev Happy path for constructor, checking events.
     function testConstructorEmitsEvents() public {
         vm.expectEmit(true, true, false, false);
-        emit ProofManagerStorage.ProvingNetworkAddressChanged(
-            ProofManagerStorage.ProvingNetwork.Fermah, fermah
-        );
+        emit ProvingNetworkAddressChanged(ProvingNetwork.Fermah, fermah);
         vm.expectEmit(true, true, false, false);
-        emit ProofManagerStorage.ProvingNetworkStatusChanged(
-            ProofManagerStorage.ProvingNetwork.Fermah,
-            ProofManagerStorage.ProvingNetworkStatus.Active
-        );
+        emit ProvingNetworkStatusChanged(ProvingNetwork.Fermah, ProvingNetworkStatus.Active);
         vm.expectEmit(true, true, false, false);
-        emit ProofManagerStorage.ProvingNetworkAddressChanged(
-            ProofManagerStorage.ProvingNetwork.Lagrange, lagrange
-        );
+        emit ProvingNetworkAddressChanged(ProvingNetwork.Lagrange, lagrange);
         vm.expectEmit(true, true, false, false);
-        emit ProofManagerStorage.ProvingNetworkStatusChanged(
-            ProofManagerStorage.ProvingNetwork.Lagrange,
-            ProofManagerStorage.ProvingNetworkStatus.Active
-        );
+        emit ProvingNetworkStatusChanged(ProvingNetwork.Lagrange, ProvingNetworkStatus.Active);
 
         vm.expectEmit(true, false, false, false);
-        emit ProofManagerStorage.PreferredNetworkSet(ProofManagerStorage.ProvingNetwork.None);
+        emit PreferredNetworkSet(ProvingNetwork.None);
         new ProofManagerHarness(fermah, lagrange, address(usdc));
     }
 

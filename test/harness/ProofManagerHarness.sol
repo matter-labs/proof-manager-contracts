@@ -2,6 +2,7 @@
 pragma solidity ^0.8.29;
 
 import "../../src/ProofManager.sol";
+import "../../src/interfaces/IProofManager.sol";
 
 /// @dev Test‑only wrapper that exposes internal fields/allows specific transitions to simplify code.
 contract ProofManagerHarness is ProofManager {
@@ -14,18 +15,16 @@ contract ProofManagerHarness is ProofManager {
     ////////////////////////*/
 
     /// @dev Changes status of a proof request, regardless of state machine.
-    function forceSetProofRequestStatus(
-        ProofManagerStorage.ProofRequestIdentifier memory id,
-        ProofManagerStorage.ProofRequestStatus status
-    ) external {
+    function forceSetProofRequestStatus(ProofRequestIdentifier memory id, ProofRequestStatus status)
+        external
+    {
         _proofRequests[id.chainId][id.blockNumber].status = status;
     }
 
     /// @dev Changes assignee of proof request, regardless of round robin.
-    function forceSetProofRequestAssignee(
-        ProofManagerStorage.ProofRequestIdentifier memory id,
-        ProofManagerStorage.ProvingNetwork assignee
-    ) external {
+    function forceSetProofRequestAssignee(ProofRequestIdentifier memory id, ProvingNetwork assignee)
+        external
+    {
         _proofRequests[id.chainId][id.blockNumber].assignedTo = assignee;
     }
 }
