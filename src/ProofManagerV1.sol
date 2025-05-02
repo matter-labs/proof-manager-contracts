@@ -7,16 +7,27 @@ import "./interfaces/IProofManager.sol";
 // import "./logic/RequestManager.sol";
 // import "./logic/NetworkAdmin.sol";
 // import "./logic/ProvingNetworkActions.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+// import "@openzeppelin/contracts/access/Ownable.sol";
+// import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @author Matter Labs
 /// @notice Entry point for Proof Manager.
-contract ProofManagerV1 is IProofManager, ProofManagerStorage, Ownable {
-    IERC20 public immutable USDC;
+contract ProofManagerV1 is IProofManager, ProofManagerStorage, Initializable, OwnableUpgradeable {
+    using Transitions for ProofRequestStatus;
+
+    IERC20 public USDC;
 
     /// @dev Constructor. Sets up the contract.
-    constructor(address fermah, address lagrange, address usdc) Ownable(msg.sender) {
+    function initialize(address fermah, address lagrange, address usdc, address admin)
+        external
+        initializer
+    {
+        require(admin != address(0), "owner cannot be zero");
+        __Ownable_init(admin);
         require(
             fermah != address(0) && lagrange != address(0), "proving network address cannot be zero"
         );
@@ -37,10 +48,7 @@ contract ProofManagerV1 is IProofManager, ProofManagerStorage, Ownable {
     ////////////////////////*/
 
     /// @dev Initializes a proving network. Used in the constructor.
-    function initializeProvingNetwork(ProvingNetwork provingNetwork, address addr)
-        private
-        onlyOwner
-    {
+    function initializeProvingNetwork(ProvingNetwork provingNetwork, address addr) private {
         ProofManagerStorage.ProvingNetworkInfo storage info = _provingNetworks[provingNetwork];
         info.addr = addr;
         info.status = ProvingNetworkStatus.Active;
@@ -241,7 +249,6 @@ contract ProofManagerV1 is IProofManager, ProofManagerStorage, Ownable {
     }
 
     /////////// Proving Network Actions ///////////
-    using Transitions for ProofRequestStatus;
 
     /*////////////////////////
             Helpers

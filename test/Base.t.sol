@@ -51,21 +51,17 @@ contract FakeUSDC is IERC20 {
 abstract contract Base is Test {
     /// @dev ProofManager, but with a few functions that override invariants.
     ProofManagerHarness proofManager;
-    FakeUSDC usdc;
+    FakeUSDC usdc = new FakeUSDC();
 
-    address owner;
+    address owner = makeAddr("owner");
     address fermah = makeAddr("fermah");
     address lagrange = makeAddr("lagrange");
     address nonOwner = makeAddr("nonOwner");
     address otherProvingNetwork = makeAddr("otherProvingNetwork");
 
-    /// @dev Set up the test environment.
     function setUp() public virtual {
-        owner = address(this);
-
-        usdc = new FakeUSDC();
-        proofManager = new ProofManagerHarness(fermah, lagrange, address(usdc));
-
+        proofManager = new ProofManagerHarness();
+        proofManager.initialize(fermah, lagrange, address(usdc), owner);
         usdc.mint(address(proofManager), 1_000_000e6);
     }
 
@@ -167,6 +163,7 @@ abstract contract Base is Test {
     function submitDefaultProofRequest(uint256 chainId, uint256 blockNumber) internal {
         ProofRequestIdentifier memory id =
             ProofRequestIdentifier({ chainId: chainId, blockNumber: blockNumber });
+        vm.prank(owner);
         proofManager.submitProofRequest(
             id, ProofRequestParams("https://console.google.com/buckets/...", 0, 27, 0, 3600, 4e6)
         );

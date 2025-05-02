@@ -23,6 +23,7 @@ contract RequestManagerTest is Base {
         vm.expectEmit(true, true, false, true);
         emit ProofRequestSubmitted(1, 1, ProvingNetwork.Fermah, ProofRequestStatus.Ready);
 
+        vm.prank(owner);
         proofManager.submitProofRequest(
             ProofRequestIdentifier(1, 1),
             ProofRequestParams("https://console.google.com/buckets/...", 0, 27, 0, 3600, 4e6)
@@ -47,9 +48,12 @@ contract RequestManagerTest is Base {
 
     /// @dev Only owner can submit a proof request.
     function testNonOwnerCannotSubmitProof() public {
-        vm.prank(nonOwner);
         expectOwnableRevert(nonOwner);
-        submitDefaultProofRequest(1, 1);
+        vm.prank(nonOwner);
+        proofManager.submitProofRequest(
+            ProofRequestIdentifier(1, 1),
+            ProofRequestParams("https://console.google.com/buckets/...", 0, 27, 0, 3600, 4e6)
+        );
     }
 
     /// @dev A proof request for a specific chain/batch can be submitted only once.
@@ -62,6 +66,7 @@ contract RequestManagerTest is Base {
     /// @dev No proof can be generated in 0 seconds.
     function testCannotSubmitProofWithZeroTimeout() public {
         vm.expectRevert("proof generation timeout must be bigger than 0");
+        vm.prank(owner);
         proofManager.submitProofRequest(
             ProofRequestIdentifier(1, 1),
             ProofRequestParams("https://console.google.com/buckets/...", 0, 27, 0, 0, 4e6)
@@ -71,6 +76,7 @@ contract RequestManagerTest is Base {
     /// @dev If the request is higher than withdrawal limit, then withdraw is blocked.
     function testCannotSubmitProofWithMaxRewardHigherThanWithdrawalLimit() public {
         vm.expectRevert("max reward is higher than maximum withdraw limit");
+        vm.prank(owner);
         proofManager.submitProofRequest(
             ProofRequestIdentifier(1, 1),
             ProofRequestParams(
@@ -100,6 +106,7 @@ contract RequestManagerTest is Base {
             SubmitProofExpected(ProvingNetwork.Lagrange, ProofRequestStatus.Ready)
         ];
 
+        vm.prank(owner);
         proofManager.updateProvingNetworkStatus(
             ProvingNetwork.Fermah, ProvingNetworkStatus.Inactive
         );
@@ -108,16 +115,19 @@ contract RequestManagerTest is Base {
             submitDefaultProofRequest(1, i);
         }
 
+        vm.prank(owner);
         proofManager.updatePreferredProvingNetwork(ProvingNetwork.Fermah);
 
         submitDefaultProofRequest(1, 3);
 
+        vm.prank(owner);
         proofManager.updateProvingNetworkStatus(ProvingNetwork.Fermah, ProvingNetworkStatus.Active);
 
         for (uint256 i = 4; i < 7; ++i) {
             submitDefaultProofRequest(1, i);
         }
 
+        vm.prank(owner);
         proofManager.updatePreferredProvingNetwork(ProvingNetwork.Lagrange);
 
         submitDefaultProofRequest(1, 7);
@@ -140,6 +150,7 @@ contract RequestManagerTest is Base {
                 )
             );
         }
+        vm.stopPrank();
     }
 
     /*////////////////////////
@@ -156,6 +167,7 @@ contract RequestManagerTest is Base {
 
         vm.expectEmit(true, true, false, true);
         emit ProofStatusChanged(1, 1, ProofRequestStatus.Validated);
+        vm.prank(owner);
         proofManager.updateProofRequestStatus(
             ProofRequestIdentifier(1, 1), ProofRequestStatus.Validated
         );
@@ -195,6 +207,7 @@ contract RequestManagerTest is Base {
         submitDefaultProofRequest(1, 1);
 
         vm.expectRevert("transition not allowed for request manager");
+        vm.prank(owner);
         proofManager.updateProofRequestStatus(
             ProofRequestIdentifier(1, 1), ProofRequestStatus.Committed
         );
@@ -205,6 +218,7 @@ contract RequestManagerTest is Base {
         for (uint256 i = 0; i < 8; ++i) {
             uint256 price = (i + 1) * 1e6;
             // submit request
+            vm.prank(owner);
             proofManager.submitProofRequest(
                 ProofRequestIdentifier(1, i),
                 ProofRequestParams("https://console.google.com/buckets/...", 0, 27, 0, 3600, price)
@@ -224,7 +238,9 @@ contract RequestManagerTest is Base {
                 proofManager.submitProof(
                     ProofRequestIdentifier(1, i), bytes("such proof much wow"), price
                 );
+
                 // mark it as validated
+                vm.prank(owner);
                 proofManager.updateProofRequestStatus(
                     ProofRequestIdentifier(1, i), ProofRequestStatus.Validated
                 );

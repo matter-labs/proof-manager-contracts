@@ -41,20 +41,26 @@ contract ProofManagerTest is Base {
 
         vm.expectEmit(true, false, false, false);
         emit PreferredNetworkSet(ProvingNetwork.None);
-        new ProofManagerHarness(fermah, lagrange, address(usdc));
+        ProofManagerV1 proofManager = new ProofManagerHarness();
+        proofManager.initialize(fermah, lagrange, address(this), owner);
     }
 
     /// @dev Do not allow zero address for proving networks.
     function testInitFailsWithZeroProvingNetworkAddress() public {
+        ProofManagerV1 proofManager = new ProofManagerV1();
         vm.expectRevert("proving network address cannot be zero");
-        new ProofManagerV1(address(0), lagrange, address(this));
+        proofManager.initialize(address(0), lagrange, address(this), owner);
+
+        proofManager = new ProofManagerV1();
         vm.expectRevert("proving network address cannot be zero");
-        new ProofManagerV1(fermah, address(0), address(this));
+        proofManager.initialize(fermah, address(0), address(this), owner);
     }
 
     /// @dev Do not allow zero address for USDC contract.
     function testInitFailsWithZeroUSDCAddress() public {
+        ProofManagerV1 proofManager = new ProofManagerV1();
         vm.expectRevert("usdc contract address cannot be zero");
-        new ProofManagerV1(fermah, lagrange, address(0));
+
+        proofManager.initialize(fermah, lagrange, address(0), owner);
     }
 }

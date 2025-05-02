@@ -12,6 +12,7 @@ contract NetworkAdminTest is Base {
     function testChangeProvingNetworkAddress() public {
         vm.expectEmit(true, true, false, true);
         emit ProvingNetworkAddressChanged(ProvingNetwork.Fermah, otherProvingNetwork);
+        vm.prank(owner);
         proofManager.updateProvingNetworkAddress(ProvingNetwork.Fermah, otherProvingNetwork);
         assertProvingNetworkInfo(
             ProvingNetwork.Fermah,
@@ -31,12 +32,14 @@ contract NetworkAdminTest is Base {
     /// @dev Proving Network None is not a real network. As such, you can't add an address to it.
     function testCannotChangeProvingNetworkAddressForNone() public {
         vm.expectRevert("proving network cannot be None");
+        vm.prank(owner);
         proofManager.updateProvingNetworkAddress(ProvingNetwork.None, otherProvingNetwork);
     }
 
     /// @dev You can't set a proving network address to zero. This is a safety check.
     function testCannotChangeProvingNetworkAddressToZero() public {
         vm.expectRevert("cannot unset proving network address");
+        vm.prank(owner);
         proofManager.updateProvingNetworkAddress(ProvingNetwork.Fermah, address(0));
     }
 
@@ -48,6 +51,7 @@ contract NetworkAdminTest is Base {
     function testMarkNetwork() public {
         vm.expectEmit(true, true, false, true);
         emit ProvingNetworkStatusChanged(ProvingNetwork.Fermah, ProvingNetworkStatus.Inactive);
+        vm.prank(owner);
         proofManager.updateProvingNetworkStatus(
             ProvingNetwork.Fermah, ProvingNetworkStatus.Inactive
         );
@@ -71,6 +75,7 @@ contract NetworkAdminTest is Base {
     /// @dev Proving Network None is not a real network. As such, you can't mark it.
     function testCannotMarkNetworkForNone() public {
         vm.expectRevert("proving network cannot be None");
+        vm.prank(owner);
         proofManager.updateProvingNetworkStatus(ProvingNetwork.None, ProvingNetworkStatus.Inactive);
     }
 
@@ -88,6 +93,7 @@ contract NetworkAdminTest is Base {
 
         vm.expectEmit(true, true, false, true);
         emit PreferredNetworkSet(ProvingNetwork.Fermah);
+        vm.prank(owner);
         proofManager.updatePreferredProvingNetwork(ProvingNetwork.Fermah);
         assertEq(
             uint8(proofManager.preferredNetwork()),

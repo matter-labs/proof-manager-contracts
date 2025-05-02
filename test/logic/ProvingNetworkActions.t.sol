@@ -150,14 +150,17 @@ contract ProverActionsTest is Base {
     /// @dev Happy path for withdrawing payment, very typical expected usage.
     ///     NOTE: Can be treated as an "end to end" test.
     function testWithdrawWithinLimit() public {
+        vm.prank(owner);
         proofManager.submitProofRequest(
             ProofRequestIdentifier(1, 1),
             ProofRequestParams("https://console.google.com/buckets/...", 0, 27, 0, 3600, 100e6)
         );
+        vm.prank(owner);
         proofManager.submitProofRequest(
             ProofRequestIdentifier(1, 2),
             ProofRequestParams("https://console.google.com/buckets/...", 0, 27, 0, 3600, 250e6)
         );
+        vm.prank(owner);
         proofManager.forceSetProofRequestAssignee(
             ProofRequestIdentifier(1, 2), ProvingNetwork.Fermah
         );
@@ -173,9 +176,11 @@ contract ProverActionsTest is Base {
         vm.prank(fermah);
         proofManager.submitProof(ProofRequestIdentifier(1, 2), bytes("such proof much wow"), 75e6);
 
+        vm.prank(owner);
         proofManager.updateProofRequestStatus(
             ProofRequestIdentifier(1, 1), ProofRequestStatus.Validated
         );
+        vm.prank(owner);
         proofManager.updateProofRequestStatus(
             ProofRequestIdentifier(1, 2), ProofRequestStatus.Validated
         );
@@ -203,9 +208,11 @@ contract ProverActionsTest is Base {
     /// @dev Checks what happens when the price is exactly limit at withdrawal. 1 extra proof remaining.
     ///     NOTE: Can be treated as an "end to end" test.
     function testWithdrawAndExactlyLimitCanBeWithdrawn() public {
+        vm.prank(owner);
         proofManager.updatePreferredProvingNetwork(ProvingNetwork.Fermah);
         uint256 pricePerProof = 6_250e6;
         for (uint256 i = 0; i < 5; i++) {
+            vm.prank(owner);
             proofManager.submitProofRequest(
                 ProofRequestIdentifier(1, i),
                 ProofRequestParams(
@@ -222,6 +229,7 @@ contract ProverActionsTest is Base {
             proofManager.submitProof(
                 ProofRequestIdentifier(1, i), bytes("such proof much wow"), pricePerProof
             );
+            vm.prank(owner);
             proofManager.updateProofRequestStatus(
                 ProofRequestIdentifier(1, i), ProofRequestStatus.Validated
             );
@@ -262,9 +270,11 @@ contract ProverActionsTest is Base {
 
     /// @dev Ensures that if the next proof is more expensive than limit, it breaks. 2 extra proofs remaining.
     function testWithdrawAndNeedsBreakDueToWithdrawLimit() public {
+        vm.prank(owner);
         proofManager.updatePreferredProvingNetwork(ProvingNetwork.Fermah);
         uint256 pricePerProof = 7_000e6;
         for (uint256 i = 0; i < 5; i++) {
+            vm.prank(owner);
             proofManager.submitProofRequest(
                 ProofRequestIdentifier(1, i),
                 ProofRequestParams(
@@ -281,6 +291,7 @@ contract ProverActionsTest is Base {
             proofManager.submitProof(
                 ProofRequestIdentifier(1, i), bytes("such proof much wow"), pricePerProof
             );
+            vm.prank(owner);
             proofManager.updateProofRequestStatus(
                 ProofRequestIdentifier(1, i), ProofRequestStatus.Validated
             );
@@ -321,6 +332,7 @@ contract ProverActionsTest is Base {
 
     /// @dev Ensures only proving network can call withdraw.
     function testOnlyProvingNetworkCanWithdraw() public {
+        vm.prank(owner);
         proofManager.submitProofRequest(
             ProofRequestIdentifier(1, 1),
             ProofRequestParams("https://console.google.com/buckets/...", 0, 27, 0, 3600, 4e6)
@@ -329,6 +341,7 @@ contract ProverActionsTest is Base {
         proofManager.acknowledgeProofRequest(ProofRequestIdentifier(1, 1), true);
         vm.prank(fermah);
         proofManager.submitProof(ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 3e6);
+        vm.prank(owner);
         proofManager.updateProofRequestStatus(
             ProofRequestIdentifier(1, 1), ProofRequestStatus.Validated
         );
