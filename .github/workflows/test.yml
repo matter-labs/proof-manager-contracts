@@ -53,9 +53,11 @@ jobs:
           forge coverage --report lcov
         id: coverage
 
-      - name: Filter directories from coverage
-        run: |
-          lcov --remove lcov.info 'test/*' 'script/*' --output-file lcov.info --rc branch_coverage=1
+      # - name: Filter directories from coverage
+      #   run: |
+      #     lcov \
+      #       --remove lcov.info 'test/*' 'script/*'
+      #       --output-file lcov.info
 
       - name: Post coverage
         if: github.event_name == 'pull_request'
