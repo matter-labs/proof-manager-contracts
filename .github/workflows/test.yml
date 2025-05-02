@@ -56,9 +56,9 @@ jobs:
       - name: Filter directories from coverage
         run: |
           lcov \
-            --remove lcov.info 'test/*' 'scripts/*' \
+            --remove lcov.info 'test/*' \
             --output-file lcov.info \
-            --rc lcov_branch_coverage=1
+            --rc branch_coverage=1
 
       - name: Post coverage
         if: github.event_name == 'pull_request'
