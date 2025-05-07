@@ -12,6 +12,29 @@ env:
   FOUNDRY_PROFILE: ci
 
 jobs:
+  test_scripts:
+    strategy:
+      fail-fast: true
+
+    name: Test scripts in isolation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@82dee4ba654bd2146511f85f0d013af94670c4de # v1.4.0
+
+      - name: Show Forge version
+        run: |
+          forge --version
+
+      - name: Run forge script
+        run: |
+          source .env && forge script scripts/DeployProofManagerV1.s.sol:DeployProofManagerV1 -vvvv
+        id: script
+
   test_and_coverage:
     strategy:
       fail-fast: true
