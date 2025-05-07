@@ -18,6 +18,12 @@ jobs:
 
     name: Test scripts in isolation
     runs-on: ubuntu-latest
+    env:
+      FERMAH_ADDRESS: 0x0000000000000000000000000000000000000001
+      LAGRANGE_ADDRESS: 0x0000000000000000000000000000000000000002
+      USDC_ADDRESS: 0x0000000000000000000000000000000000000003
+      PROOF_MANAGER_OWNER_ADDRESS: 0x0000000000000000000000000000000000000004
+      PROXY_OWNER_ADDRESS: 0x0000000000000000000000000000000000000005
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,7 +38,7 @@ jobs:
 
       - name: Run forge script
         run: |
-          source .env && forge script scripts/DeployProofManagerV1.s.sol:DeployProofManagerV1 -vvvv
+          forge script scripts/DeployProofManagerV1.s.sol:DeployProofManagerV1 -vvvv
         id: script
 
   test_and_coverage:
