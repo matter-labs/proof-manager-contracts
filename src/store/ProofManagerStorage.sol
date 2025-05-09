@@ -50,7 +50,7 @@ abstract contract ProofManagerStorage {
     ////////////////////////*/
 
     /// @dev Mapping for the source of truth on Proving Network information.
-    mapping(ProvingNetwork => ProvingNetworkInfo) public _provingNetworks;
+    mapping(ProvingNetwork => ProvingNetworkInfo) internal _provingNetworks;
 
     /// @dev Mapping for the source of truth on proof requests. (ProofRequestIdentifier => ProofRequest)
     mapping(uint256 => mapping(uint256 => ProofRequest)) internal _proofRequests;
@@ -63,7 +63,7 @@ abstract contract ProofManagerStorage {
     uint256 internal _requestCounter;
 
     /// @dev USDC contract address used for paying proofs.
-    IERC20 public USDC;
+    IERC20 internal USDC;
 
     /*////////////////////////
             Constants

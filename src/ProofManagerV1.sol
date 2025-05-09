@@ -79,8 +79,8 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
 
         USDC = IERC20(usdc);
 
-        initializeProvingNetwork(ProvingNetwork.Fermah, fermah);
-        initializeProvingNetwork(ProvingNetwork.Lagrange, lagrange);
+        _initializeProvingNetwork(ProvingNetwork.Fermah, fermah);
+        _initializeProvingNetwork(ProvingNetwork.Lagrange, lagrange);
 
         preferredProvingNetwork = ProvingNetwork.None;
         emit PreferredProvingNetworkSet(ProvingNetwork.None);
@@ -311,7 +311,7 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
     ////////////////////////*/
 
     /// @dev Initializes a proving network. Used in the constructor.
-    function initializeProvingNetwork(ProvingNetwork provingNetwork, address addr) private {
+    function _initializeProvingNetwork(ProvingNetwork provingNetwork, address addr) private {
         ProvingNetworkInfo storage info = _provingNetworks[provingNetwork];
         info.addr = addr;
         info.status = ProvingNetworkStatus.Active;
