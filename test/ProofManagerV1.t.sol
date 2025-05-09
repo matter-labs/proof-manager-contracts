@@ -12,6 +12,7 @@ import {
     OnlyProvingNetworkAllowed,
     OnlyProvingNetworkAssigneedAllowed,
     ProofRequestAcknowledgementDeadlinePassed,
+    ProofRequestDidNotReachDeadline,
     ProofRequestProvingDeadlinePassed,
     ProvingNetworkCannotBeNone,
     RewardBiggerThanLimit,
@@ -506,6 +507,41 @@ contract ProofManagerV1Test is Test {
         assertProvingNetworkInfo(
             ProvingNetwork.Lagrange,
             ProvingNetworkInfo(lagrange, ProvingNetworkStatus.Active, identifiers, 8e6)
+        );
+    }
+
+    /// @dev Update proof request status to unacked/timedout does not work before deadline, but does after.
+    function testUpdateProofRequestStatusToUnackedOrTimedout() public {
+        submitDefaultProofRequest(1, 1);
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(ProofRequestDidNotReachDeadline.selector));
+        vm.warp(block.timestamp + 2 minutes);
+        proofManager.updateProofRequestStatus(
+            ProofRequestIdentifier(1, 1), ProofRequestStatus.Unacknowledged
+        );
+
+        vm.prank(owner);
+        vm.warp(block.timestamp + 1 minutes);
+        proofManager.updateProofRequestStatus(
+            ProofRequestIdentifier(1, 1), ProofRequestStatus.Unacknowledged
+        );
+
+        proofManager.forceSetProofRequestStatus(
+            ProofRequestIdentifier(1, 1), ProofRequestStatus.Committed
+        );
+
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(ProofRequestDidNotReachDeadline.selector));
+        // first timeblock is at T0. Then 2 minutes pass, then 1 more minute; default proof request has 1h deadline, (1h - 3m = 57m max)
+        vm.warp(block.timestamp + 57 minutes);
+        proofManager.updateProofRequestStatus(
+            ProofRequestIdentifier(1, 1), ProofRequestStatus.TimedOut
+        );
+
+        vm.prank(owner);
+        vm.warp(block.timestamp + 1 minutes);
+        proofManager.updateProofRequestStatus(
+            ProofRequestIdentifier(1, 1), ProofRequestStatus.TimedOut
         );
     }
 

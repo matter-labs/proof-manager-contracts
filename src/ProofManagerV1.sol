@@ -21,6 +21,7 @@ error NoPaymentDue();
 error OnlyProvingNetworkAllowed(address sender);
 error OnlyProvingNetworkAssigneedAllowed(address sender);
 error ProofRequestAcknowledgementDeadlinePassed();
+error ProofRequestDidNotReachDeadline();
 error ProofRequestProvingDeadlinePassed();
 error ProvingNetworkCannotBeNone();
 error RewardBiggerThanLimit(uint256 reward);
@@ -200,6 +201,20 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
         if (!_proofRequest.status.isRequestManagerAllowed(status)) {
             revert TransitionNotAllowedForProofRequestManager(_proofRequest.status, status);
         }
+        // cannot mark proof as unacknowledged or timed out before the deadline
+        if (
+            (
+                status == ProofRequestStatus.Unacknowledged
+                    && block.timestamp <= _proofRequest.submittedAt + ACK_TIMEOUT
+            )
+                || (
+                    status == ProofRequestStatus.TimedOut
+                        && block.timestamp <= _proofRequest.submittedAt + _proofRequest.timeoutAfter
+                )
+        ) {
+            revert ProofRequestDidNotReachDeadline();
+        }
+
         _proofRequest.status = status;
         emit ProofStatusChanged(id.chainId, id.blockNumber, status);
 
