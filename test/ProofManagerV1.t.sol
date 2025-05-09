@@ -719,6 +719,10 @@ contract ProofManagerV1Test is Test {
         assertEq(info.unclaimedProofs.length, 2);
         assertEq(info.paymentDue, 125e6);
 
+        for (uint256 i = 2; i > 0; i--) {
+            vm.expectEmit(true, true, false, true);
+            emit ProofStatusChanged(1, i, ProofRequestStatus.Paid);
+        }
         vm.expectEmit(true, true, false, true);
         emit PaymentWithdrawn(ProvingNetwork.Fermah, 125e6);
 
@@ -738,7 +742,7 @@ contract ProofManagerV1Test is Test {
         vm.prank(owner);
         proofManager.updatePreferredProvingNetwork(ProvingNetwork.Fermah);
         uint256 pricePerProof = 6_250e6;
-        for (uint256 i = 0; i < 5; i++) {
+        for (uint256 i = 1; i <= 5; i++) {
             vm.prank(owner);
             proofManager.submitProofRequest(
                 ProofRequestIdentifier(1, i),
@@ -768,6 +772,10 @@ contract ProofManagerV1Test is Test {
         assertEq(info.unclaimedProofs.length, 5);
         assertEq(info.paymentDue, pricePerProof * 5);
 
+        for (uint256 i = 5; i >= 2; i--) {
+            vm.expectEmit(true, true, false, true);
+            emit ProofStatusChanged(1, i, ProofRequestStatus.Paid);
+        }
         vm.expectEmit(true, true, false, true);
         emit PaymentWithdrawn(ProvingNetwork.Fermah, pricePerProof * 4);
 
@@ -781,6 +789,8 @@ contract ProofManagerV1Test is Test {
         assertEq(info.unclaimedProofs.length, 1);
         assertEq(info.paymentDue, pricePerProof);
 
+        vm.expectEmit(true, true, false, true);
+        emit ProofStatusChanged(1, 1, ProofRequestStatus.Paid);
         vm.expectEmit(true, true, false, true);
         emit PaymentWithdrawn(ProvingNetwork.Fermah, pricePerProof);
 
@@ -799,7 +809,7 @@ contract ProofManagerV1Test is Test {
         vm.prank(owner);
         proofManager.updatePreferredProvingNetwork(ProvingNetwork.Fermah);
         uint256 pricePerProof = 7_000e6;
-        for (uint256 i = 0; i < 5; i++) {
+        for (uint256 i = 1; i <= 5; i++) {
             vm.prank(owner);
             proofManager.submitProofRequest(
                 ProofRequestIdentifier(1, i),
@@ -829,6 +839,10 @@ contract ProofManagerV1Test is Test {
         assertEq(info.unclaimedProofs.length, 5);
         assertEq(info.paymentDue, pricePerProof * 5);
 
+        for (uint256 i = 5; i >= 3; i--) {
+            vm.expectEmit(true, true, false, true);
+            emit ProofStatusChanged(1, i, ProofRequestStatus.Paid);
+        }
         vm.expectEmit(true, true, false, true);
         emit PaymentWithdrawn(ProvingNetwork.Fermah, pricePerProof * 3);
 
@@ -842,6 +856,10 @@ contract ProofManagerV1Test is Test {
         assertEq(info.unclaimedProofs.length, 2);
         assertEq(info.paymentDue, pricePerProof * 2);
 
+        for (uint256 i = 2; i >= 1; i--) {
+            vm.expectEmit(true, true, false, true);
+            emit ProofStatusChanged(1, i, ProofRequestStatus.Paid);
+        }
         vm.expectEmit(true, true, false, true);
         emit PaymentWithdrawn(ProvingNetwork.Fermah, pricePerProof * 2);
 

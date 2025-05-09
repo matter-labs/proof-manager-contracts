@@ -280,10 +280,10 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
         }
 
         uint256 paid = 0;
-        uint256 i = 0;
 
-        while (i < info.unclaimedProofs.length && paid < payableAmount) {
-            ProofRequestIdentifier memory id = info.unclaimedProofs[i];
+        while (info.unclaimedProofs.length > 0 && paid < payableAmount) {
+            uint256 last_index = info.unclaimedProofs.length - 1;
+            ProofRequestIdentifier memory id = info.unclaimedProofs[last_index];
 
             ProofRequest storage _proofRequest = _proofRequests[id.chainId][id.blockNumber];
 
@@ -293,9 +293,8 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
             _proofRequest.status = ProofRequestStatus.Paid;
             paid += price;
 
-            // swap and pop to reduce gas utilization
-            info.unclaimedProofs[i] = info.unclaimedProofs[info.unclaimedProofs.length - 1];
             info.unclaimedProofs.pop();
+            emit ProofStatusChanged(id.chainId, id.blockNumber, _proofRequest.status);
         }
 
         info.paymentDue -= paid;
