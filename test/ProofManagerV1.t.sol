@@ -65,7 +65,7 @@ contract ProofManagerV1Test is Test {
         );
 
         assertEq(
-            uint8(proofManager.preferredNetwork()),
+            uint8(proofManager.preferredProvingNetwork()),
             uint8(ProvingNetwork.None),
             "preferred network should be None"
         );
@@ -193,7 +193,7 @@ contract ProofManagerV1Test is Test {
     /// @dev Happy path for updating the preferred proving network.
     function testUpdatePreferredProvingNetwork() public {
         assertEq(
-            uint8(proofManager.preferredNetwork()),
+            uint8(proofManager.preferredProvingNetwork()),
             uint8(ProvingNetwork.None),
             "preferred network should be None"
         );
@@ -203,7 +203,7 @@ contract ProofManagerV1Test is Test {
         vm.prank(owner);
         proofManager.updatePreferredProvingNetwork(ProvingNetwork.Fermah);
         assertEq(
-            uint8(proofManager.preferredNetwork()),
+            uint8(proofManager.preferredProvingNetwork()),
             uint8(ProvingNetwork.Fermah),
             "preferred network should be Fermah"
         );

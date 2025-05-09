@@ -2,12 +2,6 @@
 pragma solidity ^0.8.29;
 
 /*////////////////////////
-        Errors
-////////////////////////*/
-
-// TODO: add later
-
-/*////////////////////////
         Events
 ////////////////////////*/
 
@@ -91,13 +85,19 @@ struct ProofRequestParams {
     uint256 maxReward;
 }
 
+/*////////////////////////
+        Errors
+////////////////////////*/
+
+// TODO: add later
+
 /// @author Matter Labs
 /// @custom:security-contact security@matterlabs.dev
 /// @title ProofManager contract interface
 interface IProofManager {
-    /*////////////////////////
-            Administrator
-    ////////////////////////*/
+    /*//////////////////////////////////////////
+            Proving Network Management
+    //////////////////////////////////////////*/
 
     function updateProvingNetworkAddress(ProvingNetwork network, address addr) external;
 
@@ -106,9 +106,20 @@ interface IProofManager {
 
     function updatePreferredProvingNetwork(ProvingNetwork network) external;
 
-    /*////////////////////////
-        Proving Network
-    ////////////////////////*/
+    /*//////////////////////////////////////////
+            Proof Request Management
+    //////////////////////////////////////////*/
+    function submitProofRequest(
+        ProofRequestIdentifier calldata id,
+        ProofRequestParams calldata params
+    ) external;
+
+    function updateProofRequestStatus(ProofRequestIdentifier calldata id, ProofRequestStatus status)
+        external;
+
+    /*//////////////////////////////////////////
+            Proving Network Interactions
+    //////////////////////////////////////////*/
 
     function acknowledgeProofRequest(ProofRequestIdentifier calldata id, bool accept) external;
 
@@ -121,15 +132,4 @@ interface IProofManager {
     function withdraw() external;
 
     // TODO: add withdraw(to: address)
-
-    /*////////////////////////
-            Sequencer
-    ////////////////////////*/
-    function submitProofRequest(
-        ProofRequestIdentifier calldata id,
-        ProofRequestParams calldata params
-    ) external;
-
-    function updateProofRequestStatus(ProofRequestIdentifier calldata id, ProofRequestStatus status)
-        external;
 }

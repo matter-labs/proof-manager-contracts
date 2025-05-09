@@ -8,6 +8,8 @@ import {
     ProvingNetwork
 } from "../interfaces/IProofManager.sol";
 
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 /*////////////////////////
         Types
 ////////////////////////*/
@@ -48,17 +50,20 @@ abstract contract ProofManagerStorage {
     ////////////////////////*/
 
     /// @dev Mapping for the source of truth on Proving Network information.
-    mapping(ProvingNetwork => ProvingNetworkInfo) internal _provingNetworks;
+    mapping(ProvingNetwork => ProvingNetworkInfo) public _provingNetworks;
 
     /// @dev Mapping for the source of truth on proof requests. (ProofRequestIdentifier => ProofRequest)
     mapping(uint256 => mapping(uint256 => ProofRequest)) internal _proofRequests;
 
     /// @dev Proving Network that will receive more proof requests.
     ///     By default, None, but will be computed on a previous month basis and set by the owner.
-    ProvingNetwork internal _preferredProvingNetwork;
+    ProvingNetwork public preferredProvingNetwork;
 
     /// @dev Used to round robin proof requests between Proving Networks. Tracks number of requests that have been outsourced to Proving Networks.
     uint256 internal _requestCounter;
+
+    /// @dev USDC contract address used for paying proofs.
+    IERC20 public USDC;
 
     /*////////////////////////
             Constants
