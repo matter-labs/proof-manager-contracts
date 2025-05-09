@@ -281,6 +281,8 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
 
         uint256 paid = 0;
 
+        // NOTE: Gas limit is not expected to be hit, given withdrawal limit.
+        // Assuming a mistake is made, the contract is upgradeable and that's the mitigation path.
         while (info.unclaimedProofs.length > 0 && paid < payableAmount) {
             uint256 last_index = info.unclaimedProofs.length - 1;
             ProofRequestIdentifier memory id = info.unclaimedProofs[last_index];
