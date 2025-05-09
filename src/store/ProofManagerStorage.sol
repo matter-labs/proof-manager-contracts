@@ -8,83 +8,41 @@ import {
     ProvingNetwork
 } from "../interfaces/IProofManager.sol";
 
+/*////////////////////////
+        Types
+////////////////////////*/
+
+/// @dev Used to track information of each proving network. Relevant for proof request assignment, authorization and payments.
+struct ProvingNetworkInfo {
+    address addr;
+    ProvingNetworkStatus status;
+    ProofRequestIdentifier[] unclaimedProofs;
+    // owed in USDC (6 decimals) => 10$ = 10e6
+    uint256 paymentDue;
+}
+
+/// @dev Authoritative source of truth for proof requests.
+struct ProofRequest {
+    string proofInputsUrl;
+    uint32 protocolMajor;
+    uint32 protocolMinor;
+    uint32 protocolPatch;
+    // block.timestamp when submitted
+    uint256 submittedAt;
+    // time duration (I.E. 1 hours)
+    uint256 timeoutAfter;
+    // max USDC sequencer is willing to pay (6 decimals) => 10$ = 10e6
+    uint256 maxReward;
+    ProofRequestStatus status;
+    ProvingNetwork assignedTo;
+    // price the proving network is willing to prove for (6 decimals) => 10$ = 10e6
+    uint256 provingNetworkPrice;
+    bytes proof;
+}
+
 /// @author Matter Labs
 /// @notice Storage layout. No logic here.
 abstract contract ProofManagerStorage {
-    /*////////////////////////
-            Types
-    ////////////////////////*/
-
-    // /// @dev Proving Networks available, None used for lack of Option<> on _preferredNetwork.
-    // enum ProvingNetwork {
-    //     None,
-    //     Fermah,
-    //     Lagrange
-    // }
-
-    // /// @dev Proving Network status. Inactive networks do not receive proof requests.
-    // enum ProvingNetworkStatus {
-    //     Active,
-    //     Inactive
-    // }
-
-    // /// @dev State machine for proof request lifecycle transitions.
-    // enum ProofRequestStatus {
-    //     Ready,
-    //     Committed,
-    //     Refused,
-    //     Unacknowledged,
-    //     Proven,
-    //     TimedOut,
-    //     Validated,
-    //     ValidationFailed,
-    //     Paid
-    // }
-
-    // /// @dev Proof Request identifier. chainId and blockNumber tuple is expected to be unique.
-    // struct ProofRequestIdentifier {
-    //     uint256 chainId;
-    //     uint256 blockNumber;
-    // }
-
-    /// @dev Used to track information of each proving network. Relevant for proof request assignment, authorization and payments.
-    struct ProvingNetworkInfo {
-        address addr;
-        ProvingNetworkStatus status;
-        ProofRequestIdentifier[] unclaimedProofs;
-        // owed in USDC (6 decimals) => 10$ = 10e6
-        uint256 paymentDue;
-    }
-
-    /// @dev Authoritative source of truth for proof requests.
-    struct ProofRequest {
-        string proofInputsUrl;
-        uint32 protocolMajor;
-        uint32 protocolMinor;
-        uint32 protocolPatch;
-        // block.timestamp when submitted
-        uint256 submittedAt;
-        // time duration (I.E. 1 hours)
-        uint256 timeoutAfter;
-        // max USDC sequencer is willing to pay (6 decimals) => 10$ = 10e6
-        uint256 maxReward;
-        ProofRequestStatus status;
-        ProvingNetwork assignedTo;
-        // price the proving network is willing to prove for (6 decimals) => 10$ = 10e6
-        uint256 provingNetworkPrice;
-        bytes proof;
-    }
-
-    // /// @dev Helper struct to help with proof request submission interface. Subset of ProofRequest.
-    // struct ProofRequestParams {
-    //     string proofInputsUrl;
-    //     uint32 protocolMajor;
-    //     uint32 protocolMinor;
-    //     uint32 protocolPatch;
-    //     // time duration (I.E. 1 hours)
-    //     uint256 timeoutAfter;
-    //     uint256 maxReward;
-    // }
     /*////////////////////////
             Storage
     ////////////////////////*/
@@ -97,7 +55,7 @@ abstract contract ProofManagerStorage {
 
     /// @dev Proving Network that will receive more proof requests.
     ///     By default, None, but will be computed on a previous month basis and set by the owner.
-    ProvingNetwork internal _preferredNetwork;
+    ProvingNetwork internal _preferredProvingNetwork;
 
     /// @dev Used to round robin proof requests between Proving Networks. Tracks number of requests that have been outsourced to Proving Networks.
     uint256 internal _requestCounter;

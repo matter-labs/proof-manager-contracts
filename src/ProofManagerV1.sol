@@ -4,30 +4,26 @@ pragma solidity ^0.8.29;
 import "./store/ProofManagerStorage.sol";
 import { Transitions } from "./lib/Transitions.sol";
 import "./interfaces/IProofManager.sol";
-// import "./logic/RequestManager.sol";
-// import "./logic/NetworkAdmin.sol";
-// import "./logic/ProvingNetworkActions.sol";
-// import "@openzeppelin/contracts/access/Ownable.sol";
-// import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { OwnableUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @author Matter Labs
 /// @notice Entry point for Proof Manager.
-contract ProofManagerV1 is IProofManager, ProofManagerStorage, Initializable, OwnableUpgradeable {
+contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, ProofManagerStorage {
     using Transitions for ProofRequestStatus;
 
     IERC20 public USDC;
 
     /// @dev Constructor. Sets up the contract.
-    function initialize(address fermah, address lagrange, address usdc, address admin)
+    function initialize(address fermah, address lagrange, address usdc, address _owner)
         external
         initializer
     {
-        require(admin != address(0), "owner cannot be zero");
-        __Ownable_init(admin);
+        require(_owner != address(0), "owner cannot be zero");
+        __Ownable_init(_owner);
         require(
             fermah != address(0) && lagrange != address(0), "proving network address cannot be zero"
         );
@@ -38,8 +34,8 @@ contract ProofManagerV1 is IProofManager, ProofManagerStorage, Initializable, Ow
         initializeProvingNetwork(ProvingNetwork.Fermah, fermah);
         initializeProvingNetwork(ProvingNetwork.Lagrange, lagrange);
 
-        _preferredNetwork = ProvingNetwork.None;
-        emit PreferredNetworkSet(ProvingNetwork.None);
+        _preferredProvingNetwork = ProvingNetwork.None;
+        emit PreferredProvingNetworkSet(ProvingNetwork.None);
         _requestCounter = 0;
     }
 
@@ -49,7 +45,7 @@ contract ProofManagerV1 is IProofManager, ProofManagerStorage, Initializable, Ow
 
     /// @dev Initializes a proving network. Used in the constructor.
     function initializeProvingNetwork(ProvingNetwork provingNetwork, address addr) private {
-        ProofManagerStorage.ProvingNetworkInfo storage info = _provingNetworks[provingNetwork];
+        ProvingNetworkInfo storage info = _provingNetworks[provingNetwork];
         info.addr = addr;
         info.status = ProvingNetworkStatus.Active;
         delete info.unclaimedProofs;
@@ -83,7 +79,7 @@ contract ProofManagerV1 is IProofManager, ProofManagerStorage, Initializable, Ow
 
     /// @dev Getter for Preferred Proving Network.
     function preferredNetwork() external view returns (ProvingNetwork) {
-        return _preferredNetwork;
+        return _preferredProvingNetwork;
     }
 
     /////// NetworkAdmin functions ///////
@@ -125,8 +121,8 @@ contract ProofManagerV1 is IProofManager, ProofManagerStorage, Initializable, Ow
 
     /// @dev Used once per month to direct more proofs to the network that scored best previous month.
     function updatePreferredProvingNetwork(ProvingNetwork provingNetwork) external onlyOwner {
-        _preferredNetwork = provingNetwork;
-        emit PreferredNetworkSet(provingNetwork);
+        _preferredProvingNetwork = provingNetwork;
+        emit PreferredProvingNetworkSet(provingNetwork);
     }
 
     ///////// Proving Network Actions /////////
@@ -166,19 +162,19 @@ contract ProofManagerV1 is IProofManager, ProofManagerStorage, Initializable, Ow
     {
         // NOTE: Checking if the proof request exists is not necessary. By default, a proof request that doesn't exist is assigned to ProvingNetwork None.
         //      As such, onlyAssignee(id) will fail.
-        ProofRequest storage proofRequest = _proofRequests[id.chainId][id.blockNumber];
+        ProofRequest storage _proofRequest = _proofRequests[id.chainId][id.blockNumber];
         require(
-            proofRequest.status == ProofRequestStatus.Ready,
+            _proofRequest.status == ProofRequestStatus.Ready,
             "cannot acknowledge proof request that is not ready"
         );
         require(
-            block.timestamp <= proofRequest.submittedAt + ACK_TIMEOUT,
+            block.timestamp <= _proofRequest.submittedAt + ACK_TIMEOUT,
             "proof request passed acknowledgement deadline"
         );
 
-        proofRequest.status = accept ? ProofRequestStatus.Committed : ProofRequestStatus.Refused;
+        _proofRequest.status = accept ? ProofRequestStatus.Committed : ProofRequestStatus.Refused;
 
-        emit ProofStatusChanged(id.chainId, id.blockNumber, proofRequest.status);
+        emit ProofStatusChanged(id.chainId, id.blockNumber, _proofRequest.status);
     }
 
     /// @dev Submit proof for proof request.
@@ -187,23 +183,23 @@ contract ProofManagerV1 is IProofManager, ProofManagerStorage, Initializable, Ow
         bytes calldata proof,
         uint256 provingNetworkPrice
     ) external onlyAssignee(id) {
-        ProofRequest storage proofRequest = _proofRequests[id.chainId][id.blockNumber];
+        ProofRequest storage _proofRequest = _proofRequests[id.chainId][id.blockNumber];
         require(
-            proofRequest.status == ProofRequestStatus.Committed,
+            _proofRequest.status == ProofRequestStatus.Committed,
             "cannot submit proof for non committed proof request"
         );
         require(
-            block.timestamp <= proofRequest.submittedAt + proofRequest.timeoutAfter,
+            block.timestamp <= _proofRequest.submittedAt + _proofRequest.timeoutAfter,
             "proof request passed proving deadline"
         );
 
-        proofRequest.status = ProofRequestStatus.Proven;
-        proofRequest.proof = proof;
-        proofRequest.provingNetworkPrice = provingNetworkPrice <= proofRequest.maxReward
+        _proofRequest.status = ProofRequestStatus.Proven;
+        _proofRequest.proof = proof;
+        _proofRequest.provingNetworkPrice = provingNetworkPrice <= _proofRequest.maxReward
             ? provingNetworkPrice
-            : proofRequest.maxReward;
+            : _proofRequest.maxReward;
 
-        emit ProofStatusChanged(id.chainId, id.blockNumber, proofRequest.status);
+        emit ProofStatusChanged(id.chainId, id.blockNumber, _proofRequest.status);
     }
 
     /// @dev Withdraws payment for already validated proofs, up to WITHDRAW_LIMIT.
@@ -227,12 +223,12 @@ contract ProofManagerV1 is IProofManager, ProofManagerStorage, Initializable, Ow
         while (i < info.unclaimedProofs.length && paid < payableAmount) {
             ProofRequestIdentifier memory id = info.unclaimedProofs[i];
 
-            ProofRequest storage proofRequest = _proofRequests[id.chainId][id.blockNumber];
+            ProofRequest storage _proofRequest = _proofRequests[id.chainId][id.blockNumber];
 
-            uint256 price = proofRequest.provingNetworkPrice;
+            uint256 price = _proofRequest.provingNetworkPrice;
             if (paid + price > payableAmount) break;
 
-            proofRequest.status = ProofRequestStatus.Paid;
+            _proofRequest.status = ProofRequestStatus.Paid;
             paid += price;
 
             // swap and pop to reduce gas utilization
@@ -260,7 +256,7 @@ contract ProofManagerV1 is IProofManager, ProofManagerStorage, Initializable, Ow
         uint256 mod = _requestCounter % 4;
         if (mod == 0) return ProvingNetwork.Fermah;
         if (mod == 1) return ProvingNetwork.Lagrange;
-        return _preferredNetwork;
+        return _preferredProvingNetwork;
     }
 
     /*////////////////////////
@@ -322,20 +318,20 @@ contract ProofManagerV1 is IProofManager, ProofManagerStorage, Initializable, Ow
         external
         onlyOwner
     {
-        ProofRequest storage proofRequest = _proofRequests[id.chainId][id.blockNumber];
+        ProofRequest storage _proofRequest = _proofRequests[id.chainId][id.blockNumber];
         require(
-            proofRequest.status.isRequestManagerAllowed(status),
+            _proofRequest.status.isRequestManagerAllowed(status),
             "transition not allowed for request manager"
         );
-        proofRequest.status = status;
+        _proofRequest.status = status;
         emit ProofStatusChanged(id.chainId, id.blockNumber, status);
 
         if (status == ProofRequestStatus.Validated) {
-            ProvingNetworkInfo storage provingNetworkInfo =
-                _provingNetworks[proofRequest.assignedTo];
+            ProvingNetworkInfo storage _provingNetworkInfo =
+                _provingNetworks[_proofRequest.assignedTo];
 
-            provingNetworkInfo.unclaimedProofs.push(id);
-            provingNetworkInfo.paymentDue += proofRequest.provingNetworkPrice;
+            _provingNetworkInfo.unclaimedProofs.push(id);
+            _provingNetworkInfo.paymentDue += _proofRequest.provingNetworkPrice;
         }
     }
 }

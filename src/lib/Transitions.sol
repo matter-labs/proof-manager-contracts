@@ -7,15 +7,15 @@ import { ProofRequestStatus } from "../interfaces/IProofManager.sol";
 /// @notice This library contains transition logic for proof request status lifecycle
 library Transitions {
     /*
-                +--> [refuse]
+                +--> [Refused]
                 |
-    [ready] -------+--> [unack]
+    [Ready] ----+-----> [Unacknowledged]
                 |
-                +--> [commit] --> [timed out]
-                            |
-                            +--> [proven] --> [failed]
+                +--> [Committed] --> [TimedOut]
+                                |
+                                +--> [Proven] --> [ValidationFailed]
                                             |
-                                            +--> [validated] --> [paid]
+                                            +--> [Validated] --> [Paid]
     */
     /// @dev This function checks if the transition from one status to another is allowed according to the spec.
     ///     NOTE: Implementation serves as documentation on the state machine.
@@ -46,16 +46,16 @@ library Transitions {
     }
 
     /*
-                +--> [refuse]
-                |        x
-    [ready] -------+--> [unack]
-        x       |
-                +--> [commit] --> [timed out]
-                         x  |
-                            +--> [proven] --> [failed]
-                                     x      |
-                                            +--> [validated] --> [paid]
-                                                                    x
+                +--> [Refused]
+                |
+    [Ready] ----+-----> [Unacknowledged]
+       x        |              x
+                +--> [Committed] --> [TimedOut]
+                                |        x
+                                +--> [Proven] --> [ValidationFailed]
+                                            |            x
+                                            +--> [Validated] --> [Paid]
+                                                      x
     */
     /// @dev Request Manager can do even less transitions (due to access control).
     ///     NOTE: No similar function exists for Proving Networks (handled manually), but could be introduced in the future.

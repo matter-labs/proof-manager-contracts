@@ -11,9 +11,7 @@ pragma solidity ^0.8.29;
         Events
 ////////////////////////*/
 
-// TODO: Verify if docstrings make sense anymore
-
-/// @dev Emitted when a proof request is submitted. Proving Networks will filter for events with their own ProvingNetwork.
+/// @dev Emitted when a proof request is submitted. Proving Networks will filter for events that are assigned to them.
 event ProofRequestSubmitted(
     uint256 indexed chainId,
     uint256 indexed blockNumber,
@@ -38,19 +36,19 @@ event PaymentWithdrawn(ProvingNetwork indexed by, uint256 amount);
 event ProvingNetworkAddressChanged(ProvingNetwork indexed provingNetwork, address addr);
 
 /// @dev Emitted when Proving Network status is changed. Useful for transparency and serves as communication medium for Proving Networks.
-///     Proving Networks will filter for events with their own ProvingNetwork.
+///     Proving Networks will filter for events that change their own status.
 event ProvingNetworkStatusChanged(
     ProvingNetwork indexed provingNetwork, ProvingNetworkStatus status
 );
 
 /// @dev Emitted when Proving Network is set as preferred (once per month). Useful for transparency and troubleshooting.
-event PreferredNetworkSet(ProvingNetwork indexed provingNetwork);
+event PreferredProvingNetworkSet(ProvingNetwork indexed provingNetwork);
 
 /*////////////////////////
         Types
 ////////////////////////*/
 
-/// @dev Proving Networks available, None represents unset/non-existing ProvingNetwork where Option<ProvingNetwork> is required.
+/// @dev Proving Networks available, None represents unset/non-existing ProvingNetwork (used where Option<ProvingNetwork> is required).
 enum ProvingNetwork {
     None,
     Fermah,
@@ -88,13 +86,14 @@ struct ProofRequestParams {
     uint32 protocolMajor;
     uint32 protocolMinor;
     uint32 protocolPatch;
-    // time duration (I.E. 1 hours)
+    // time duration (I.E. 2 hours)
     uint256 timeoutAfter;
     uint256 maxReward;
 }
 
-// TODO: add docstrings for the interface
-
+/// @author Matter Labs
+/// @custom:security-contact security@matterlabs.dev
+/// @title ProofManager contract interface
 interface IProofManager {
     /*////////////////////////
             Administrator
@@ -121,7 +120,7 @@ interface IProofManager {
 
     function withdraw() external;
 
-    // TODO: add withdrwa(to: address)
+    // TODO: add withdraw(to: address)
 
     /*////////////////////////
             Sequencer
