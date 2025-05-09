@@ -85,12 +85,6 @@ struct ProofRequestParams {
     uint256 maxReward;
 }
 
-/*////////////////////////
-        Errors
-////////////////////////*/
-
-// TODO: add later
-
 /// @author Matter Labs
 /// @custom:security-contact security@matterlabs.dev
 /// @title ProofManager contract interface

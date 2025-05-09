@@ -9,6 +9,26 @@ import { OwnableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
+/*////////////////////////
+        Errors
+////////////////////////*/
+
+/// @dev field - what was the "field" for which we tried to set a 0 address (I.E. USDC or Fermah)
+error AddressCannotBeZero(string field);
+error DuplicatedProofRequest(uint256 chainId, uint256 blockNumber);
+error InvalidProofRequestTimeout();
+error NoPaymentDue();
+error OnlyProvingNetworkAllowed(address sender);
+error OnlyProvingNetworkAssigneedAllowed(address sender);
+error ProofRequestAcknowledgementDeadlinePassed();
+error ProofRequestProvingDeadlinePassed();
+error ProvingNetworkCannotBeNone();
+error RewardBiggerThanLimit(uint256 reward);
+error TransitionNotAllowed(ProofRequestStatus from, ProofRequestStatus to);
+error TransitionNotAllowedForProofRequestManager(ProofRequestStatus from, ProofRequestStatus to);
+error TransitionNotAllowedForProvingNetwork(ProofRequestStatus from, ProofRequestStatus to);
+error USDCTransferFailed();
+
 /// @author Matter Labs
 /// @notice Entry point for Proof Manager.
 contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, ProofManagerStorage {
@@ -20,28 +40,26 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
 
     /// @dev You need to be a proving network to call this function.
     modifier onlyProvingNetwork() {
-        require(
-            msg.sender == _provingNetworks[ProvingNetwork.Fermah].addr
-                || msg.sender == _provingNetworks[ProvingNetwork.Lagrange].addr,
-            "only proving network"
-        );
+        if (
+            msg.sender != _provingNetworks[ProvingNetwork.Fermah].addr
+                && msg.sender != _provingNetworks[ProvingNetwork.Lagrange].addr
+        ) revert OnlyProvingNetworkAllowed(msg.sender);
         _;
     }
 
     /// @dev You need the proof request to be assigned to you to call this function.
     modifier onlyAssignee(ProofRequestIdentifier calldata id) {
-        require(
-            msg.sender
-                == _provingNetworks[_proofRequests[id.chainId][id.blockNumber].assignedTo].addr,
-            "only proving network assignee"
-        );
+        if (
+            _provingNetworks[_proofRequests[id.chainId][id.blockNumber].assignedTo].addr
+                != msg.sender
+        ) revert OnlyProvingNetworkAssigneedAllowed(msg.sender);
         _;
     }
 
-    /// @dev You need to have a proving network that is not None to cal this function.
+    /// @dev You need to have a proving network that is not None to call this function.
     ///     None is an escape hatch (lack of Option<>) and should not be used in public API.
     modifier provingNetworkNotNone(ProvingNetwork provingNetwork) {
-        require(provingNetwork != ProvingNetwork.None, "proving network cannot be None");
+        if (provingNetwork == ProvingNetwork.None) revert ProvingNetworkCannotBeNone();
         _;
     }
 
@@ -53,12 +71,11 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
         external
         initializer
     {
-        require(_owner != address(0), "owner cannot be zero");
+        if (_owner == address(0)) revert AddressCannotBeZero("owner");
         __Ownable_init(_owner);
-        require(
-            fermah != address(0) && lagrange != address(0), "proving network address cannot be zero"
-        );
-        require(usdc != address(0), "usdc contract address cannot be zero");
+        if (fermah == address(0)) revert AddressCannotBeZero("fermah");
+        if (lagrange == address(0)) revert AddressCannotBeZero("lagrange");
+        if (usdc == address(0)) revert AddressCannotBeZero("usdc");
 
         USDC = IERC20(usdc);
 
@@ -102,7 +119,7 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
         onlyOwner
         provingNetworkNotNone(provingNetwork)
     {
-        require(addr != address(0), "cannot unset proving network address");
+        if (addr == address(0)) revert AddressCannotBeZero("proving network");
         _provingNetworks[provingNetwork].addr = addr;
         emit ProvingNetworkAddressChanged(provingNetwork, addr);
     }
@@ -132,14 +149,11 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
         ProofRequestIdentifier calldata id,
         ProofRequestParams calldata params
     ) external onlyOwner {
-        require(
-            _proofRequests[id.chainId][id.blockNumber].submittedAt == 0, "duplicated proof request"
-        );
-        require(params.timeoutAfter > 0, "proof generation timeout must be bigger than 0");
-
-        require(
-            params.maxReward <= WITHDRAW_LIMIT, "max reward is higher than maximum withdraw limit"
-        );
+        if (_proofRequests[id.chainId][id.blockNumber].submittedAt != 0) {
+            revert DuplicatedProofRequest(id.chainId, id.blockNumber);
+        }
+        if (params.timeoutAfter == 0) revert InvalidProofRequestTimeout();
+        if (params.maxReward > WITHDRAW_LIMIT) revert RewardBiggerThanLimit(params.maxReward);
 
         ProvingNetwork assignedTo = _nextAssignee();
         bool refused = (assignedTo == ProvingNetwork.None)
@@ -183,10 +197,9 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
         onlyOwner
     {
         ProofRequest storage _proofRequest = _proofRequests[id.chainId][id.blockNumber];
-        require(
-            _proofRequest.status.isRequestManagerAllowed(status),
-            "transition not allowed for request manager"
-        );
+        if (!_proofRequest.status.isRequestManagerAllowed(status)) {
+            revert TransitionNotAllowedForProofRequestManager(_proofRequest.status, status);
+        }
         _proofRequest.status = status;
         emit ProofStatusChanged(id.chainId, id.blockNumber, status);
 
@@ -211,16 +224,17 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
         // NOTE: Checking if the proof request exists is not necessary. By default, a proof request that doesn't exist is assigned to ProvingNetwork None.
         //      As such, onlyAssignee(id) will fail.
         ProofRequest storage _proofRequest = _proofRequests[id.chainId][id.blockNumber];
-        require(
-            _proofRequest.status == ProofRequestStatus.Ready,
-            "cannot acknowledge proof request that is not ready"
-        );
-        require(
-            block.timestamp <= _proofRequest.submittedAt + ACK_TIMEOUT,
-            "proof request passed acknowledgement deadline"
-        );
+        ProofRequestStatus status =
+            accept ? ProofRequestStatus.Committed : ProofRequestStatus.Refused;
 
-        _proofRequest.status = accept ? ProofRequestStatus.Committed : ProofRequestStatus.Refused;
+        if (_proofRequest.status != ProofRequestStatus.Ready) {
+            revert TransitionNotAllowedForProvingNetwork(_proofRequest.status, status);
+        }
+        if (block.timestamp > _proofRequest.submittedAt + ACK_TIMEOUT) {
+            revert ProofRequestAcknowledgementDeadlinePassed();
+        }
+
+        _proofRequest.status = status;
 
         emit ProofStatusChanged(id.chainId, id.blockNumber, _proofRequest.status);
     }
@@ -232,14 +246,14 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
         uint256 provingNetworkPrice
     ) external onlyAssignee(id) {
         ProofRequest storage _proofRequest = _proofRequests[id.chainId][id.blockNumber];
-        require(
-            _proofRequest.status == ProofRequestStatus.Committed,
-            "cannot submit proof for non committed proof request"
-        );
-        require(
-            block.timestamp <= _proofRequest.submittedAt + _proofRequest.timeoutAfter,
-            "proof request passed proving deadline"
-        );
+        if (_proofRequest.status != ProofRequestStatus.Committed) {
+            revert TransitionNotAllowedForProvingNetwork(
+                _proofRequest.status, ProofRequestStatus.Proven
+            );
+        }
+        if (block.timestamp > _proofRequest.submittedAt + _proofRequest.timeoutAfter) {
+            revert ProofRequestProvingDeadlinePassed();
+        }
 
         _proofRequest.status = ProofRequestStatus.Proven;
         _proofRequest.proof = proof;
@@ -259,7 +273,7 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
 
         ProvingNetworkInfo storage info = _provingNetworks[provingNetwork];
         uint256 payableAmount = info.paymentDue;
-        require(payableAmount > 0, "no payment due");
+        if (payableAmount == 0) revert NoPaymentDue();
 
         if (payableAmount > WITHDRAW_LIMIT) {
             payableAmount = WITHDRAW_LIMIT;
@@ -288,7 +302,8 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
         // sanity check, "should never happen"
         require(paid > 0, "paid==0");
 
-        require(USDC.transfer(msg.sender, paid), "USDC transfer fail");
+        if (!USDC.transfer(msg.sender, paid)) revert USDCTransferFailed();
+
         emit PaymentWithdrawn(provingNetwork, paid);
     }
 

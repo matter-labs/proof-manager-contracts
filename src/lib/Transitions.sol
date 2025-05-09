@@ -2,6 +2,7 @@
 pragma solidity ^0.8.29;
 
 import { ProofRequestStatus } from "../interfaces/IProofManager.sol";
+import { TransitionNotAllowed } from "../ProofManagerV1.sol";
 
 /// @author Matter Labs
 /// @notice This library contains transition logic for proof request status lifecycle
@@ -67,7 +68,7 @@ library Transitions {
         pure
         returns (bool)
     {
-        require(isAllowed(from, to), "invalid transition");
+        if (!isAllowed(from, to)) revert TransitionNotAllowed(from, to);
         return to == ProofRequestStatus.Unacknowledged || to == ProofRequestStatus.TimedOut
             || to == ProofRequestStatus.ValidationFailed || to == ProofRequestStatus.Validated;
     }

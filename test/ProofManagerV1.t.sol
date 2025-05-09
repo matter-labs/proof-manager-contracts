@@ -3,7 +3,23 @@ pragma solidity ^0.8.29;
 
 import { Test } from "forge-std/Test.sol";
 import { ProvingNetworkInfo, ProofRequest } from "../src/store/ProofManagerStorage.sol";
-import { ProofManagerV1 } from "../src/ProofManagerV1.sol";
+import {
+    ProofManagerV1,
+    AddressCannotBeZero,
+    DuplicatedProofRequest,
+    InvalidProofRequestTimeout,
+    NoPaymentDue,
+    OnlyProvingNetworkAllowed,
+    OnlyProvingNetworkAssigneedAllowed,
+    ProofRequestAcknowledgementDeadlinePassed,
+    ProofRequestProvingDeadlinePassed,
+    ProvingNetworkCannotBeNone,
+    RewardBiggerThanLimit,
+    TransitionNotAllowed,
+    TransitionNotAllowedForProofRequestManager,
+    TransitionNotAllowedForProvingNetwork,
+    USDCTransferFailed
+} from "../src/ProofManagerV1.sol";
 import {
     PreferredProvingNetworkSet,
     ProvingNetworkStatusChanged,
@@ -91,20 +107,28 @@ contract ProofManagerV1Test is Test {
     /// @dev Do not allow zero address for proving networks.
     function testInitFailsWithZeroProvingNetworkAddress() public {
         ProofManagerV1 _proofManager = new ProofManagerV1();
-        vm.expectRevert("proving network address cannot be zero");
+        vm.expectRevert(abi.encodeWithSelector(AddressCannotBeZero.selector, "fermah"));
         _proofManager.initialize(address(0), lagrange, address(this), owner);
 
         _proofManager = new ProofManagerV1();
-        vm.expectRevert("proving network address cannot be zero");
+        vm.expectRevert(abi.encodeWithSelector(AddressCannotBeZero.selector, "lagrange"));
         _proofManager.initialize(fermah, address(0), address(this), owner);
     }
 
     /// @dev Do not allow zero address for USDC contract.
     function testInitFailsWithZeroUSDCAddress() public {
         ProofManagerV1 _proofManager = new ProofManagerV1();
-        vm.expectRevert("usdc contract address cannot be zero");
+        vm.expectRevert(abi.encodeWithSelector(AddressCannotBeZero.selector, "usdc"));
 
         _proofManager.initialize(fermah, lagrange, address(0), owner);
+    }
+
+    /// @dev Do not allow zero address for owner.
+    function testInitFailsWithZeroOwnerAddress() public {
+        ProofManagerV1 _proofManager = new ProofManagerV1();
+        vm.expectRevert(abi.encodeWithSelector(AddressCannotBeZero.selector, "owner"));
+
+        _proofManager.initialize(fermah, lagrange, address(this), address(0));
     }
 
     /*//////////////////////////////////////////
@@ -138,14 +162,14 @@ contract ProofManagerV1Test is Test {
 
     /// @dev Proving Network None is not a real network. As such, you can't add an address to it.
     function testCannotUpdateProvingNetworkAddressForNone() public {
-        vm.expectRevert("proving network cannot be None");
+        vm.expectRevert(ProvingNetworkCannotBeNone.selector);
         vm.prank(owner);
         proofManager.updateProvingNetworkAddress(ProvingNetwork.None, otherProvingNetwork);
     }
 
     /// @dev You can't set a proving network address to zero. This is a safety check.
     function testCannotUpdateProvingNetworkAddressToZero() public {
-        vm.expectRevert("cannot unset proving network address");
+        vm.expectRevert(abi.encodeWithSelector(AddressCannotBeZero.selector, "proving network"));
         vm.prank(owner);
         proofManager.updateProvingNetworkAddress(ProvingNetwork.Fermah, address(0));
     }
@@ -181,7 +205,7 @@ contract ProofManagerV1Test is Test {
 
     /// @dev Proving Network None is not a real network. As such, you can't update its status.
     function testCannotUpdateProvingNetworkStatusForNone() public {
-        vm.expectRevert("proving network cannot be None");
+        vm.expectRevert(ProvingNetworkCannotBeNone.selector);
         vm.prank(owner);
         proofManager.updateProvingNetworkStatus(ProvingNetwork.None, ProvingNetworkStatus.Inactive);
     }
@@ -275,13 +299,13 @@ contract ProofManagerV1Test is Test {
     /// @dev A proof request for a specific chain/batch can be submitted only once.
     function testCannotSubmitDuplicateProof() public {
         submitDefaultProofRequest(1, 1);
-        vm.expectRevert("duplicated proof request");
+        vm.expectRevert(abi.encodeWithSelector(DuplicatedProofRequest.selector, 1, 1));
         submitDefaultProofRequest(1, 1);
     }
 
     /// @dev No proof can be generated in 0 seconds.
     function testCannotSubmitProofWithZeroTimeout() public {
-        vm.expectRevert("proof generation timeout must be bigger than 0");
+        vm.expectRevert(abi.encodeWithSelector(InvalidProofRequestTimeout.selector, 0));
         vm.prank(owner);
         proofManager.submitProofRequest(
             ProofRequestIdentifier(1, 1),
@@ -291,7 +315,7 @@ contract ProofManagerV1Test is Test {
 
     /// @dev If the request is higher than withdrawal limit, then withdraw is blocked.
     function testCannotSubmitProofWithMaxRewardHigherThanWithdrawalLimit() public {
-        vm.expectRevert("max reward is higher than maximum withdraw limit");
+        vm.expectRevert(abi.encodeWithSelector(RewardBiggerThanLimit.selector, 25_000e6 + 1));
         vm.prank(owner);
         proofManager.submitProofRequest(
             ProofRequestIdentifier(1, 1),
@@ -422,7 +446,13 @@ contract ProofManagerV1Test is Test {
     function testIllegalTransitionReverts() public {
         submitDefaultProofRequest(1, 1);
 
-        vm.expectRevert("transition not allowed for request manager");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TransitionNotAllowedForProofRequestManager.selector,
+                ProofRequestStatus.Ready,
+                ProofRequestStatus.Committed
+            )
+        );
         vm.prank(owner);
         proofManager.updateProofRequestStatus(
             ProofRequestIdentifier(1, 1), ProofRequestStatus.Committed
@@ -518,14 +548,16 @@ contract ProofManagerV1Test is Test {
     function testCannotAcknowledgeProofRequestThatIsAssignedToSomeoneElse() public {
         submitDefaultProofRequest(1, 1);
         vm.prank(lagrange);
-        vm.expectRevert("only proving network assignee");
+        vm.expectRevert(
+            abi.encodeWithSelector(OnlyProvingNetworkAssigneedAllowed.selector, lagrange)
+        );
         proofManager.acknowledgeProofRequest(ProofRequestIdentifier(1, 1), true);
     }
 
     /// @dev Cannot acknowledge a proof request that doesn't exist.
     function testCannotAcknowledgeUnexistingProofRequest() public {
         vm.prank(fermah);
-        vm.expectRevert("only proving network assignee");
+        vm.expectRevert(abi.encodeWithSelector(OnlyProvingNetworkAssigneedAllowed.selector, fermah));
         proofManager.acknowledgeProofRequest(ProofRequestIdentifier(1, 1), true);
     }
 
@@ -537,7 +569,13 @@ contract ProofManagerV1Test is Test {
                 ProofRequestIdentifier(1, 1), ProofRequestStatus(i)
             );
             vm.prank(fermah);
-            vm.expectRevert("cannot acknowledge proof request that is not ready");
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    TransitionNotAllowedForProvingNetwork.selector,
+                    ProofRequestStatus(i),
+                    ProofRequestStatus.Committed
+                )
+            );
             proofManager.acknowledgeProofRequest(ProofRequestIdentifier(1, 1), true);
         }
     }
@@ -547,7 +585,9 @@ contract ProofManagerV1Test is Test {
         submitDefaultProofRequest(1, 1);
         vm.warp(block.timestamp + 2 minutes + 1);
         vm.prank(fermah);
-        vm.expectRevert("proof request passed acknowledgement deadline");
+        vm.expectRevert(
+            abi.encodeWithSelector(ProofRequestAcknowledgementDeadlinePassed.selector, 1, 1)
+        );
         proofManager.acknowledgeProofRequest(ProofRequestIdentifier(1, 1), true);
     }
 
@@ -593,14 +633,16 @@ contract ProofManagerV1Test is Test {
     function testCannotSubmitProofForProofRequestThatIsAssignedToSomeoneElse() public {
         submitDefaultProofRequest(1, 1);
         vm.prank(lagrange);
-        vm.expectRevert("only proving network assignee");
+        vm.expectRevert(
+            abi.encodeWithSelector(OnlyProvingNetworkAssigneedAllowed.selector, lagrange)
+        );
         proofManager.submitProof(ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 3e6);
     }
 
     /// @dev Cannot submit proof for a request that doesn't exist.
     function testCannontSubmitProofForUnexistentProofRequest() public {
         vm.prank(fermah);
-        vm.expectRevert("only proving network assignee");
+        vm.expectRevert(abi.encodeWithSelector(OnlyProvingNetworkAssigneedAllowed.selector, fermah));
         proofManager.submitProof(ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 3e6);
     }
 
@@ -608,7 +650,13 @@ contract ProofManagerV1Test is Test {
     function testCannotSubmitProofForUncommitedProofRequest() public {
         submitDefaultProofRequest(1, 1);
         vm.prank(fermah);
-        vm.expectRevert("cannot submit proof for non committed proof request");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TransitionNotAllowedForProvingNetwork.selector,
+                ProofRequestStatus.Ready,
+                ProofRequestStatus.Proven
+            )
+        );
         proofManager.submitProof(ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 3e6);
     }
 
@@ -619,7 +667,7 @@ contract ProofManagerV1Test is Test {
         proofManager.acknowledgeProofRequest(ProofRequestIdentifier(1, 1), true);
         vm.warp(block.timestamp + 1 hours + 1);
         vm.prank(fermah);
-        vm.expectRevert("proof request passed proving deadline");
+        vm.expectRevert(abi.encodeWithSelector(ProofRequestProvingDeadlinePassed.selector, 1, 1));
         proofManager.submitProof(ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 3e6);
     }
 
@@ -822,14 +870,15 @@ contract ProofManagerV1Test is Test {
         proofManager.updateProofRequestStatus(
             ProofRequestIdentifier(1, 1), ProofRequestStatus.Validated
         );
-        vm.expectRevert("only proving network");
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(OnlyProvingNetworkAllowed.selector, owner));
         proofManager.withdraw();
     }
 
     /// @dev Reverts if there's nothing to pay.
     function testWithdrawRevertsWhenNothingToPay() public {
         vm.prank(fermah);
-        vm.expectRevert("no payment due");
+        vm.expectRevert(abi.encodeWithSelector(NoPaymentDue.selector));
         proofManager.withdraw();
     }
 

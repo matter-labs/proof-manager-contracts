@@ -6,6 +6,7 @@ import { Test } from "forge-std/Test.sol";
 import { ProofRequestStatus } from "../../src/interfaces/IProofManager.sol";
 import { Transitions } from "../../src/lib/Transitions.sol";
 import { TransitionsHarness } from "../harness/TransitionsHarness.sol";
+import { TransitionNotAllowed } from "../../src/ProofManagerV1.sol";
 
 /// @dev Test contract for the Transitions library.
 contract TransitionsTest is Test {
@@ -113,7 +114,7 @@ contract TransitionsTest is Test {
                     );
                 } else {
                     // otherwise it is a guaranteed revert
-                    vm.expectRevert("invalid transition");
+                    vm.expectRevert(abi.encodeWithSelector(TransitionNotAllowed.selector, from, to));
                     harness.requestManagerAllowed(from, to);
                 }
             }
