@@ -1,10 +1,10 @@
 // SPDX‑License‑Identifier: MIT
 pragma solidity ^0.8.29;
 
-import "../../src/interfaces/IProofManager.sol";
-import "../../src/lib/Transitions.sol";
+import { ProofRequestStatus } from "../../src/interfaces/IProofManager.sol";
+import { Transitions } from "../../src/lib/Transitions.sol";
 
-/// @dev Test‑only wrapper.
+/// @dev Test‑only wrapper to materialize library call.
 contract TransitionsHarness {
     function requestManagerAllowed(ProofRequestStatus from, ProofRequestStatus to)
         external

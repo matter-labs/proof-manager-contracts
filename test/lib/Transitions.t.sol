@@ -1,10 +1,13 @@
 // SPDX‑License‑Identifier: MIT
 pragma solidity ^0.8.29;
 
-import "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 
-import "../harness/TransitionsHarness.sol";
+import { ProofRequestStatus } from "../../src/interfaces/IProofManager.sol";
+import { Transitions } from "../../src/lib/Transitions.sol";
+import { TransitionsHarness } from "../harness/TransitionsHarness.sol";
 
+/// @dev Test contract for the Transitions library.
 contract TransitionsTest is Test {
     using Transitions for ProofRequestStatus;
 

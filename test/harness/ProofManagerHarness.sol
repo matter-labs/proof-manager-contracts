@@ -1,18 +1,16 @@
 // SPDX‑License‑Identifier: MIT
 pragma solidity ^0.8.29;
 
-import "../../src/ProofManagerV1.sol";
-import "../../src/interfaces/IProofManager.sol";
+import { ProofManagerV1 } from "../../src/ProofManagerV1.sol";
+import {
+    ProofRequestIdentifier,
+    ProofRequestStatus,
+    ProvingNetwork
+} from "../../src/interfaces/IProofManager.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-/// @dev Test‑only wrapper that exposes internal fields/allows specific transitions to simplify code.
+/// @dev Test‑only wrapper that bypasses internal checks for ease of testing.
 contract ProofManagerHarness is ProofManagerV1 {
-    // constructor() {
-    // }
-
-    /*////////////////////////
-            Helpers
-    ////////////////////////*/
-
     /// @dev Changes status of a proof request, regardless of state machine.
     function forceSetProofRequestStatus(ProofRequestIdentifier memory id, ProofRequestStatus status)
         external
@@ -25,5 +23,50 @@ contract ProofManagerHarness is ProofManagerV1 {
         external
     {
         _proofRequests[id.chainId][id.blockNumber].assignedTo = assignee;
+    }
+}
+
+/// @dev Mock USDC contract implementation.
+contract MockUSDC is IERC20 {
+    mapping(address => uint256) public balanceOf;
+    string public constant name = "Mock USDC";
+    uint8 public constant decimals = 6;
+
+    /*////////////////////////
+            Used
+    ////////////////////////*/
+
+    function mint(address to, uint256 amt) external {
+        balanceOf[to] += amt;
+    }
+
+    function transfer(address to, uint256 amt) external returns (bool) {
+        balanceOf[msg.sender] -= amt;
+        balanceOf[to] += amt;
+        return true;
+    }
+
+    /*/////////////////////////////////////////
+            Implemented due to interface
+    /////////////////////////////////////////*/
+
+    /// @dev Not used, but required by interface.
+    function transferFrom(address, address, uint256) external pure returns (bool) {
+        return true;
+    }
+
+    /// @dev Not used, but required by interface.
+    function allowance(address, address) external pure returns (uint256) {
+        return 0;
+    }
+
+    /// @dev Not used, but required by interface.
+    function approve(address, uint256) external pure returns (bool) {
+        return true;
+    }
+
+    /// @dev Not used, but required by interface.
+    function totalSupply() external pure returns (uint256) {
+        return 0;
     }
 }
