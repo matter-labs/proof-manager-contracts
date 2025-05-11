@@ -9,27 +9,6 @@ import { OwnableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-/*////////////////////////
-        Errors
-////////////////////////*/
-
-/// @dev field - what was the "field" for which we tried to set a 0 address (I.E. USDC or Fermah)
-error AddressCannotBeZero(string field);
-error DuplicatedProofRequest(uint256 chainId, uint256 blockNumber);
-error InvalidProofRequestTimeout();
-error NoPaymentDue();
-error OnlyProvingNetworkAllowed(address sender);
-error OnlyProvingNetworkAssigneedAllowed(address sender);
-error ProofRequestAcknowledgementDeadlinePassed();
-error ProofRequestDidNotReachDeadline();
-error ProofRequestProvingDeadlinePassed();
-error ProvingNetworkCannotBeNone();
-error RewardBiggerThanLimit(uint256 reward);
-error TransitionNotAllowed(ProofRequestStatus from, ProofRequestStatus to);
-error TransitionNotAllowedForProofRequestManager(ProofRequestStatus from, ProofRequestStatus to);
-error TransitionNotAllowedForProvingNetwork(ProofRequestStatus from, ProofRequestStatus to);
-error USDCTransferFailed();
-
 /// @author Matter Labs
 /// @notice Entry point for Proof Manager.
 contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, ProofManagerStorage {

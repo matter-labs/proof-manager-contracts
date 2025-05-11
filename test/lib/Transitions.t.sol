@@ -3,53 +3,53 @@ pragma solidity ^0.8.29;
 
 import { Test } from "forge-std/Test.sol";
 
-import { ProofRequestStatus } from "../../src/interfaces/IProofManager.sol";
+import "../../src/interfaces/IProofManager.sol";
 import { Transitions } from "../../src/lib/Transitions.sol";
 import { TransitionsHarness } from "../harness/TransitionsHarness.sol";
-import { TransitionNotAllowed } from "../../src/ProofManagerV1.sol";
+import "../../src/ProofManagerV1.sol";
 
 /// @dev Test contract for the Transitions library.
 contract TransitionsTest is Test {
-    using Transitions for ProofRequestStatus;
+    using Transitions for IProofManager.ProofRequestStatus;
 
     /// @dev Ensures that all transitions possible are covered.
     function testIsAllowedMatrix() public pure {
         for (uint8 i = 0; i < 9; i++) {
             for (uint8 j = 0; j < 9; j++) {
-                ProofRequestStatus from = ProofRequestStatus(i);
-                ProofRequestStatus to = ProofRequestStatus(j);
+                IProofManager.ProofRequestStatus from = IProofManager.ProofRequestStatus(i);
+                IProofManager.ProofRequestStatus to = IProofManager.ProofRequestStatus(j);
 
                 bool expected = false;
 
                 // Ready to {Committed, Refused, Unacknowledged}
                 if (
-                    from == ProofRequestStatus.Ready
+                    from == IProofManager.ProofRequestStatus.Ready
                         && (
-                            to == ProofRequestStatus.Committed || to == ProofRequestStatus.Refused
-                                || to == ProofRequestStatus.Unacknowledged
+                            to == IProofManager.ProofRequestStatus.Committed || to == IProofManager.ProofRequestStatus.Refused
+                                || to == IProofManager.ProofRequestStatus.Unacknowledged
                         )
                 ) {
                     expected = true;
                 }
                 // Committed to {Proven, TimedOut}
                 else if (
-                    from == ProofRequestStatus.Committed
-                        && (to == ProofRequestStatus.Proven || to == ProofRequestStatus.TimedOut)
+                    from == IProofManager.ProofRequestStatus.Committed
+                        && (to == IProofManager.ProofRequestStatus.Proven || to == IProofManager.ProofRequestStatus.TimedOut)
                 ) {
                     expected = true;
                 }
                 // Proven to {Validated, ValidationFailed}
                 else if (
-                    from == ProofRequestStatus.Proven
+                    from == IProofManager.ProofRequestStatus.Proven
                         && (
-                            to == ProofRequestStatus.Validated
-                                || to == ProofRequestStatus.ValidationFailed
+                            to == IProofManager.ProofRequestStatus.Validated
+                                || to == IProofManager.ProofRequestStatus.ValidationFailed
                         )
                 ) {
                     expected = true;
                 }
                 // Validated to {Paid}
-                else if (from == ProofRequestStatus.Validated && to == ProofRequestStatus.Paid) {
+                else if (from == IProofManager.ProofRequestStatus.Validated && to == IProofManager.ProofRequestStatus.Paid) {
                     expected = true;
                 }
 
@@ -79,17 +79,17 @@ contract TransitionsTest is Test {
         TransitionsHarness harness = new TransitionsHarness();
         for (uint8 i = 0; i < 9; i++) {
             for (uint8 j = 0; j < 9; j++) {
-                ProofRequestStatus from = ProofRequestStatus(i);
-                ProofRequestStatus to = ProofRequestStatus(j);
+                IProofManager.ProofRequestStatus from = IProofManager.ProofRequestStatus(i);
+                IProofManager.ProofRequestStatus to = IProofManager.ProofRequestStatus(j);
 
                 // general transition
                 bool allowed = from.isAllowed(to);
 
                 // request manager transition -- note we don't need to check from state, as it's been checked in `isAllowed` above
                 bool expected = (
-                    to == ProofRequestStatus.Unacknowledged || to == ProofRequestStatus.TimedOut
-                        || to == ProofRequestStatus.ValidationFailed
-                        || to == ProofRequestStatus.Validated
+                    to == IProofManager.ProofRequestStatus.Unacknowledged || to == IProofManager.ProofRequestStatus.TimedOut
+                        || to == IProofManager.ProofRequestStatus.ValidationFailed
+                        || to == IProofManager.ProofRequestStatus.Validated
                 );
 
                 if (allowed) {
@@ -114,7 +114,7 @@ contract TransitionsTest is Test {
                     );
                 } else {
                     // otherwise it is a guaranteed revert
-                    vm.expectRevert(abi.encodeWithSelector(TransitionNotAllowed.selector, from, to));
+                    vm.expectRevert(abi.encodeWithSelector(IProofManager.TransitionNotAllowed.selector, from, to));
                     harness.requestManagerAllowed(from, to);
                 }
             }

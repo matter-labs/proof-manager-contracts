@@ -1,8 +1,7 @@
 // SPDX‑License‑Identifier: MIT
 pragma solidity ^0.8.29;
 
-import { ProofRequestStatus } from "../interfaces/IProofManager.sol";
-import { TransitionNotAllowed } from "../ProofManagerV1.sol";
+import "../interfaces/IProofManager.sol";
 
 /// @author Matter Labs
 /// @notice This library contains transition logic for proof request status lifecycle
@@ -23,25 +22,32 @@ library Transitions {
     /// @param from The current status of the proof request.
     /// @param to The new status of the proof request after transition.
     /// @return True if the transition is allowed, false otherwise.
-    function isAllowed(ProofRequestStatus from, ProofRequestStatus to)
+    function isAllowed(IProofManager.ProofRequestStatus from, IProofManager.ProofRequestStatus to)
         internal
         pure
         returns (bool)
     {
-        if (from == ProofRequestStatus.Ready) {
+        if (from == IProofManager.ProofRequestStatus.Ready) {
             return (
-                to == ProofRequestStatus.Committed || to == ProofRequestStatus.Refused
-                    || to == ProofRequestStatus.Unacknowledged
+                to == IProofManager.ProofRequestStatus.Committed
+                    || to == IProofManager.ProofRequestStatus.Refused
+                    || to == IProofManager.ProofRequestStatus.Unacknowledged
             );
         }
-        if (from == ProofRequestStatus.Committed) {
-            return (to == ProofRequestStatus.Proven || to == ProofRequestStatus.TimedOut);
+        if (from == IProofManager.ProofRequestStatus.Committed) {
+            return (
+                to == IProofManager.ProofRequestStatus.Proven
+                    || to == IProofManager.ProofRequestStatus.TimedOut
+            );
         }
-        if (from == ProofRequestStatus.Proven) {
-            return (to == ProofRequestStatus.Validated || to == ProofRequestStatus.ValidationFailed);
+        if (from == IProofManager.ProofRequestStatus.Proven) {
+            return (
+                to == IProofManager.ProofRequestStatus.Validated
+                    || to == IProofManager.ProofRequestStatus.ValidationFailed
+            );
         }
-        if (from == ProofRequestStatus.Validated) {
-            return (to == ProofRequestStatus.Paid);
+        if (from == IProofManager.ProofRequestStatus.Validated) {
+            return (to == IProofManager.ProofRequestStatus.Paid);
         }
         return false;
     }
@@ -63,13 +69,14 @@ library Transitions {
     /// @param from The current status of the proof request.
     /// @param to The new status of the proof request after transition.
     /// @return True if the transition is allowed, false otherwise.
-    function isRequestManagerAllowed(ProofRequestStatus from, ProofRequestStatus to)
-        internal
-        pure
-        returns (bool)
-    {
-        if (!isAllowed(from, to)) revert TransitionNotAllowed(from, to);
-        return to == ProofRequestStatus.Unacknowledged || to == ProofRequestStatus.TimedOut
-            || to == ProofRequestStatus.ValidationFailed || to == ProofRequestStatus.Validated;
+    function isRequestManagerAllowed(
+        IProofManager.ProofRequestStatus from,
+        IProofManager.ProofRequestStatus to
+    ) internal pure returns (bool) {
+        if (!isAllowed(from, to)) revert IProofManager.TransitionNotAllowed(from, to);
+        return to == IProofManager.ProofRequestStatus.Unacknowledged
+            || to == IProofManager.ProofRequestStatus.TimedOut
+            || to == IProofManager.ProofRequestStatus.ValidationFailed
+            || to == IProofManager.ProofRequestStatus.Validated;
     }
 }
