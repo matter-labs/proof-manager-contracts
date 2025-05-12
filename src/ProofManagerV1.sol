@@ -180,6 +180,7 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
             params.maxReward
         );
 
+        // overflow is not a problem here, the number of proofs is unfathomably large (we'd need some ~10**66 proofs per second for 100 years straight for overflow to happen)
         _requestCounter += 1;
     }
 
@@ -196,6 +197,7 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
             _proofRequest.status = ProofRequestStatus.Validated;
             ProvingNetworkInfo storage _provingNetworkInfo =
                 _provingNetworks[_proofRequest.assignedTo];
+            // overflow is not a problem here, the contract would have to pay billion of trillions of current world GDP before it would happen
             _provingNetworkInfo.owedReward += _proofRequest.requestedReward;
         } else {
             _proofRequest.status = ProofRequestStatus.ValidationFailed;

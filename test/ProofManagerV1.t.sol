@@ -41,11 +41,19 @@ contract ProofManagerV1Test is Test {
 
         assertProvingNetworkInfo(
             IProofManager.ProvingNetwork.Fermah,
-            IProofManager.ProvingNetworkInfo(fermah, IProofManager.ProvingNetworkStatus.Active, 0)
+            IProofManager.ProvingNetworkInfo({
+                addr: fermah,
+                status: IProofManager.ProvingNetworkStatus.Active,
+                owedReward: 0
+            })
         );
         assertProvingNetworkInfo(
             IProofManager.ProvingNetwork.Lagrange,
-            IProofManager.ProvingNetworkInfo(lagrange, IProofManager.ProvingNetworkStatus.Active, 0)
+            IProofManager.ProvingNetworkInfo({
+                addr: lagrange,
+                status: IProofManager.ProvingNetworkStatus.Active,
+                owedReward: 0
+            })
         );
 
         assertEq(
@@ -129,9 +137,11 @@ contract ProofManagerV1Test is Test {
         );
         assertProvingNetworkInfo(
             IProofManager.ProvingNetwork.Fermah,
-            IProofManager.ProvingNetworkInfo(
-                otherProvingNetwork, IProofManager.ProvingNetworkStatus.Active, 0
-            )
+            IProofManager.ProvingNetworkInfo({
+                addr: otherProvingNetwork,
+                status: IProofManager.ProvingNetworkStatus.Active,
+                owedReward: 0
+            })
         );
     }
 
@@ -178,7 +188,11 @@ contract ProofManagerV1Test is Test {
         );
         assertProvingNetworkInfo(
             IProofManager.ProvingNetwork.Fermah,
-            IProofManager.ProvingNetworkInfo(fermah, IProofManager.ProvingNetworkStatus.Inactive, 0)
+            IProofManager.ProvingNetworkInfo({
+                addr: fermah,
+                status: IProofManager.ProvingNetworkStatus.Inactive,
+                owedReward: 0
+            })
         );
     }
 
@@ -255,26 +269,23 @@ contract ProofManagerV1Test is Test {
 
         vm.prank(owner);
         proofManager.submitProofRequest(
-            IProofManager.ProofRequestIdentifier(1, 1),
-            IProofManager.ProofRequestParams(
-                "https://console.google.com/buckets/...", 0, 27, 0, 3600, 4e6
-            )
+            IProofManager.ProofRequestIdentifier(1, 1), defaultProofRequestParams()
         );
         assertProofRequest(
             IProofManager.ProofRequestIdentifier(1, 1),
-            IProofManager.ProofRequest(
-                "https://console.google.com/buckets/...",
-                0,
-                27,
-                0,
-                block.timestamp,
-                3600,
-                4e6,
-                IProofManager.ProofRequestStatus.PendingAcknowledgement,
-                IProofManager.ProvingNetwork.Fermah,
-                0,
-                bytes("")
-            )
+            IProofManager.ProofRequest({
+                proofInputsUrl: "https://console.google.com/buckets/...",
+                protocolMajor: 0,
+                protocolMinor: 27,
+                protocolPatch: 0,
+                submittedAt: block.timestamp,
+                timeoutAfter: 3600,
+                maxReward: 4e6,
+                status: IProofManager.ProofRequestStatus.PendingAcknowledgement,
+                assignedTo: IProofManager.ProvingNetwork.Fermah,
+                requestedReward: 0,
+                proof: bytes("")
+            })
         );
     }
 
@@ -283,10 +294,7 @@ contract ProofManagerV1Test is Test {
         expectOwnableRevert(nonOwner);
         vm.prank(nonOwner);
         proofManager.submitProofRequest(
-            IProofManager.ProofRequestIdentifier(1, 1),
-            IProofManager.ProofRequestParams(
-                "https://console.google.com/buckets/...", 0, 27, 0, 3600, 4e6
-            )
+            IProofManager.ProofRequestIdentifier(1, 1), defaultProofRequestParams()
         );
     }
 
@@ -305,9 +313,14 @@ contract ProofManagerV1Test is Test {
         vm.prank(owner);
         proofManager.submitProofRequest(
             IProofManager.ProofRequestIdentifier(1, 1),
-            IProofManager.ProofRequestParams(
-                "https://console.google.com/buckets/...", 0, 27, 0, 0, 4e6
-            )
+            IProofManager.ProofRequestParams({
+                proofInputsUrl: "https://console.google.com/buckets/...",
+                protocolMajor: 0,
+                protocolMinor: 27,
+                protocolPatch: 0,
+                timeoutAfter: 0,
+                maxReward: 4e6
+            })
         );
     }
 
@@ -384,19 +397,19 @@ contract ProofManagerV1Test is Test {
         for (uint256 i = 0; i < 8; ++i) {
             assertProofRequest(
                 IProofManager.ProofRequestIdentifier(1, i),
-                IProofManager.ProofRequest(
-                    "https://console.google.com/buckets/...",
-                    0,
-                    27,
-                    0,
-                    block.timestamp,
-                    3600,
-                    4e6,
-                    outputs[i].status,
-                    outputs[i].network,
-                    0,
-                    bytes("")
-                )
+                IProofManager.ProofRequest({
+                    proofInputsUrl: "https://console.google.com/buckets/...",
+                    protocolMajor: 0,
+                    protocolMinor: 27,
+                    protocolPatch: 0,
+                    submittedAt: block.timestamp,
+                    timeoutAfter: 3600,
+                    maxReward: 4e6,
+                    status: outputs[i].status,
+                    assignedTo: outputs[i].network,
+                    requestedReward: 0,
+                    proof: bytes("")
+                })
             );
         }
         vm.stopPrank();
@@ -420,19 +433,19 @@ contract ProofManagerV1Test is Test {
         proofManager.submitProofValidationResult(IProofManager.ProofRequestIdentifier(1, 1), true);
         assertProofRequest(
             IProofManager.ProofRequestIdentifier(1, 1),
-            IProofManager.ProofRequest(
-                "https://console.google.com/buckets/...",
-                0,
-                27,
-                0,
-                block.timestamp,
-                3600,
-                4e6,
-                IProofManager.ProofRequestStatus.Validated,
-                IProofManager.ProvingNetwork.Fermah,
-                0,
-                bytes("")
-            )
+            IProofManager.ProofRequest({
+                proofInputsUrl: "https://console.google.com/buckets/...",
+                protocolMajor: 0,
+                protocolMinor: 27,
+                protocolPatch: 0,
+                submittedAt: block.timestamp,
+                timeoutAfter: 3600,
+                maxReward: 4e6,
+                status: IProofManager.ProofRequestStatus.Validated,
+                assignedTo: IProofManager.ProvingNetwork.Fermah,
+                requestedReward: 0,
+                proof: bytes("")
+            })
         );
     }
 
@@ -468,9 +481,14 @@ contract ProofManagerV1Test is Test {
             vm.prank(owner);
             proofManager.submitProofRequest(
                 IProofManager.ProofRequestIdentifier(1, i),
-                IProofManager.ProofRequestParams(
-                    "https://console.google.com/buckets/...", 0, 27, 0, 3600, reward
-                )
+                IProofManager.ProofRequestParams({
+                    proofInputsUrl: "https://console.google.com/buckets/...",
+                    protocolMajor: 0,
+                    protocolMinor: 27,
+                    protocolPatch: 0,
+                    timeoutAfter: 3600,
+                    maxReward: reward
+                })
             );
             // pretend it's been committed
             proofManager.forceSetProofRequestStatus(
@@ -499,13 +517,19 @@ contract ProofManagerV1Test is Test {
 
         assertProvingNetworkInfo(
             IProofManager.ProvingNetwork.Fermah,
-            IProofManager.ProvingNetworkInfo(fermah, IProofManager.ProvingNetworkStatus.Active, 6e6)
+            IProofManager.ProvingNetworkInfo({
+                addr: fermah,
+                status: IProofManager.ProvingNetworkStatus.Active,
+                owedReward: 6e6
+            })
         );
         assertProvingNetworkInfo(
             IProofManager.ProvingNetwork.Lagrange,
-            IProofManager.ProvingNetworkInfo(
-                lagrange, IProofManager.ProvingNetworkStatus.Active, 8e6
-            )
+            IProofManager.ProvingNetworkInfo({
+                addr: lagrange,
+                status: IProofManager.ProvingNetworkStatus.Active,
+                owedReward: 8e6
+            })
         );
     }
 
@@ -523,23 +547,23 @@ contract ProofManagerV1Test is Test {
         proofManager.submitProofValidationResult(IProofManager.ProofRequestIdentifier(1, 1), false);
         assertProofRequest(
             IProofManager.ProofRequestIdentifier(1, 1),
-            IProofManager.ProofRequest(
-                "https://console.google.com/buckets/...",
-                0,
-                27,
-                0,
-                block.timestamp,
-                3600,
-                4e6,
-                IProofManager.ProofRequestStatus.ValidationFailed,
-                IProofManager.ProvingNetwork.Fermah,
-                0,
-                bytes("")
-            )
+            IProofManager.ProofRequest({
+                proofInputsUrl: "https://console.google.com/buckets/...",
+                protocolMajor: 0,
+                protocolMinor: 27,
+                protocolPatch: 0,
+                submittedAt: block.timestamp,
+                timeoutAfter: 3600,
+                maxReward: 4e6,
+                status: IProofManager.ProofRequestStatus.ValidationFailed,
+                assignedTo: IProofManager.ProvingNetwork.Fermah,
+                requestedReward: 0,
+                proof: bytes("")
+            })
         );
         assertProvingNetworkInfo(
             IProofManager.ProvingNetwork.Fermah,
-            IProofManager.ProvingNetworkInfo(fermah, IProofManager.ProvingNetworkStatus.Active, 0)
+            IProofManager.ProvingNetworkInfo(IProofManager.ProvingNetworkStatus.Active, fermah, 0)
         );
     }
 
@@ -751,16 +775,26 @@ contract ProofManagerV1Test is Test {
         vm.prank(owner);
         proofManager.submitProofRequest(
             IProofManager.ProofRequestIdentifier(1, 1),
-            IProofManager.ProofRequestParams(
-                "https://console.google.com/buckets/...", 0, 27, 0, 3600, 100e6
-            )
+            IProofManager.ProofRequestParams({
+                proofInputsUrl: "https://console.google.com/buckets/...",
+                protocolMajor: 0,
+                protocolMinor: 27,
+                protocolPatch: 0,
+                timeoutAfter: 3600,
+                maxReward: 100e6
+            })
         );
         vm.prank(owner);
         proofManager.submitProofRequest(
             IProofManager.ProofRequestIdentifier(1, 2),
-            IProofManager.ProofRequestParams(
-                "https://console.google.com/buckets/...", 0, 27, 0, 3600, 250e6
-            )
+            IProofManager.ProofRequestParams({
+                proofInputsUrl: "https://console.google.com/buckets/...",
+                protocolMajor: 0,
+                protocolMinor: 27,
+                protocolPatch: 0,
+                timeoutAfter: 3600,
+                maxReward: 250e6
+            })
         );
         vm.prank(owner);
         proofManager.forceSetProofRequestAssignee(
@@ -809,10 +843,7 @@ contract ProofManagerV1Test is Test {
     function testOnlyProvingNetworkCanClaimReward() public {
         vm.prank(owner);
         proofManager.submitProofRequest(
-            IProofManager.ProofRequestIdentifier(1, 1),
-            IProofManager.ProofRequestParams(
-                "https://console.google.com/buckets/...", 0, 27, 0, 3600, 4e6
-            )
+            IProofManager.ProofRequestIdentifier(1, 1), defaultProofRequestParams()
         );
         vm.prank(fermah);
         proofManager.acknowledgeProofRequest(IProofManager.ProofRequestIdentifier(1, 1), true);
@@ -841,9 +872,14 @@ contract ProofManagerV1Test is Test {
         vm.prank(owner);
         proofManager.submitProofRequest(
             IProofManager.ProofRequestIdentifier(1, 1),
-            IProofManager.ProofRequestParams(
-                "https://console.google.com/buckets/...", 0, 27, 0, 3600, 1_005e6
-            )
+            IProofManager.ProofRequestParams({
+                proofInputsUrl: "https://console.google.com/buckets/...",
+                protocolMajor: 0,
+                protocolMinor: 27,
+                protocolPatch: 0,
+                timeoutAfter: 3600,
+                maxReward: 1_005e6
+            })
         );
         vm.prank(fermah);
         proofManager.acknowledgeProofRequest(IProofManager.ProofRequestIdentifier(1, 1), true);
@@ -871,9 +907,14 @@ contract ProofManagerV1Test is Test {
         vm.prank(owner);
         _proofManager.submitProofRequest(
             IProofManager.ProofRequestIdentifier(1, 1),
-            IProofManager.ProofRequestParams(
-                "https://console.google.com/buckets/...", 0, 27, 0, 3600, 3e6
-            )
+            IProofManager.ProofRequestParams({
+                proofInputsUrl: "https://console.google.com/buckets/...",
+                protocolMajor: 0,
+                protocolMinor: 27,
+                protocolPatch: 0,
+                timeoutAfter: 3600,
+                maxReward: 4e6
+            })
         );
         vm.prank(fermah);
         _proofManager.acknowledgeProofRequest(IProofManager.ProofRequestIdentifier(1, 1), true);
@@ -898,9 +939,14 @@ contract ProofManagerV1Test is Test {
         vm.prank(owner);
         proofManager.submitProofRequest(
             IProofManager.ProofRequestIdentifier(1, 1),
-            IProofManager.ProofRequestParams(
-                "https://console.google.com/buckets/...", 0, 27, 0, 3600, 4e6
-            )
+            IProofManager.ProofRequestParams({
+                proofInputsUrl: "https://console.google.com/buckets/...",
+                protocolMajor: 0,
+                protocolMinor: 27,
+                protocolPatch: 0,
+                timeoutAfter: 3600,
+                maxReward: 4e6
+            })
         );
         vm.warp(block.timestamp + 2 minutes + 1);
         IProofManager.ProofRequest memory proofRequest =
@@ -1006,12 +1052,23 @@ contract ProofManagerV1Test is Test {
         IProofManager.ProofRequestIdentifier memory id =
             IProofManager.ProofRequestIdentifier({ chainId: chainId, blockNumber: blockNumber });
         vm.prank(owner);
-        proofManager.submitProofRequest(
-            id,
-            IProofManager.ProofRequestParams(
-                "https://console.google.com/buckets/...", 0, 27, 0, 3600, 4e6
-            )
-        );
+        proofManager.submitProofRequest(id, defaultProofRequestParams());
+    }
+
+    /// @dev Default Proof Request Params for testing.
+    function defaultProofRequestParams()
+        private
+        pure
+        returns (IProofManager.ProofRequestParams memory)
+    {
+        return IProofManager.ProofRequestParams({
+            proofInputsUrl: "https://console.google.com/buckets/...",
+            protocolMajor: 0,
+            protocolMinor: 27,
+            protocolPatch: 0,
+            timeoutAfter: 3600,
+            maxReward: 4e6
+        });
     }
 
     /// @dev Expects default revert for ownable contract.

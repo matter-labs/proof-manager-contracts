@@ -55,10 +55,10 @@ interface IProofManager {
     /// @dev Proof Request submission parameters. Defines what are the parameters for proof request submission.
     /// @param timeoutAfter Time duration (I.E. 2 hours) after which the proof request will be marked be considered as timed out.
     struct ProofRequestParams {
-        string proofInputsUrl;
         uint32 protocolMajor;
         uint32 protocolMinor;
         uint32 protocolPatch;
+        string proofInputsUrl;
         uint256 timeoutAfter;
         uint256 maxReward;
     }
@@ -68,8 +68,8 @@ interface IProofManager {
     /// @param status Proving Network's status. Controls what happens at proof request assignment.
     /// @param owedReward Amount of USDC owed (6 decimals => 10$ = 10e6) to the Proving Network for all proofs that have been proven & validated.
     struct ProvingNetworkInfo {
-        address addr;
         ProvingNetworkStatus status;
+        address addr;
         uint256 owedReward;
     }
 
@@ -79,15 +79,15 @@ interface IProofManager {
     /// @param maxReward max USDC sequencer is willing to pay for a proof (6 decimals) => 10$ = 10e6
     /// @param requestedReward price the proving network is willing to prove for (6 decimals) => 10$ = 10e6
     struct ProofRequest {
-        string proofInputsUrl;
         uint32 protocolMajor;
         uint32 protocolMinor;
         uint32 protocolPatch;
+        IProofManager.ProofRequestStatus status;
+        IProofManager.ProvingNetwork assignedTo;
+        string proofInputsUrl;
         uint256 submittedAt;
         uint256 timeoutAfter;
         uint256 maxReward;
-        IProofManager.ProofRequestStatus status;
-        IProofManager.ProvingNetwork assignedTo;
         uint256 requestedReward;
         bytes proof;
     }
