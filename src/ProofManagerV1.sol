@@ -53,7 +53,7 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
     //                 Initialization
     // //////////////////////////////////////////*/
 
-    function initialize(address fermah, address lagrange, address usdc, address _owner)
+    function initialize(address fermah, address lagrange, address _usdc, address _owner)
         external
         initializer
     {
@@ -61,9 +61,9 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
         __Ownable_init(_owner);
         if (fermah == address(0)) revert AddressCannotBeZero("fermah");
         if (lagrange == address(0)) revert AddressCannotBeZero("lagrange");
-        if (usdc == address(0)) revert AddressCannotBeZero("usdc");
+        if (_usdc == address(0)) revert AddressCannotBeZero("usdc");
 
-        USDC = IERC20(usdc);
+        usdc = IERC20(_usdc);
 
         _initializeProvingNetwork(ProvingNetwork.Fermah, fermah);
         _initializeProvingNetwork(ProvingNetwork.Lagrange, lagrange);
@@ -267,11 +267,11 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
 
         if (toPay == 0) revert NoPaymentDue();
 
-        uint256 balance = USDC.balanceOf(address(this));
+        uint256 balance = usdc.balanceOf(address(this));
 
-        if (toPay > balance) revert NotEnoughUSDCFunds(balance, toPay);
+        if (toPay > balance) revert NotEnoughUsdcFunds(balance, toPay);
         info.owedReward = 0;
-        if (!USDC.transfer(info.addr, toPay)) revert USDCTransferFailed();
+        if (!usdc.transfer(info.addr, toPay)) revert UsdcTransferFailed();
 
         emit RewardClaimed(provingNetwork, toPay);
     }

@@ -161,7 +161,7 @@ interface IProofManager {
 
     /// @param balance the balance of USDC currently available in the contract
     /// @param requested the amount of USDC that was requested to be transferred as part of claimReward() computation
-    error NotEnoughUSDCFunds(uint256 balance, uint256 requested);
+    error NotEnoughUsdcFunds(uint256 balance, uint256 requested);
 
     /// @param sender the address that tried to call the function
     error OnlyProvingNetworkAllowed(address sender);
@@ -184,7 +184,7 @@ interface IProofManager {
 
     error ProvingNetworkCannotBeNone();
 
-    error USDCTransferFailed();
+    error UsdcTransferFailed();
 
     /*//////////////////////////////////////////
             Proving Network Management

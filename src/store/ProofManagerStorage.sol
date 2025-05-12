@@ -28,5 +28,5 @@ abstract contract ProofManagerStorage {
     IProofManager.ProvingNetwork public preferredProvingNetwork;
 
     /// @dev USDC contract address used for paying proofs.
-    IERC20 internal USDC;
+    IERC20 internal usdc;
 }

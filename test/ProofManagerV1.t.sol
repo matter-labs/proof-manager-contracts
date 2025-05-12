@@ -17,7 +17,7 @@ contract ProofManagerV1Test is Test {
 
     /// @dev ProofManager, but with a few functions that override invariants.
     ProofManagerV1Harness proofManager;
-    MockUSDC usdc = new MockUSDC();
+    MockUsdc usdc = new MockUsdc();
 
     address owner = makeAddr("owner");
     address fermah = makeAddr("fermah");
@@ -855,7 +855,7 @@ contract ProofManagerV1Test is Test {
         proofManager.submitProofValidationResult(IProofManager.ProofRequestIdentifier(1, 1), true);
 
         vm.expectRevert(
-            abi.encodeWithSelector(IProofManager.NotEnoughUSDCFunds.selector, 1_000e6, 1_001e6)
+            abi.encodeWithSelector(IProofManager.NotEnoughUsdcFunds.selector, 1_000e6, 1_001e6)
         );
         vm.prank(fermah);
         proofManager.claimReward();
@@ -863,10 +863,10 @@ contract ProofManagerV1Test is Test {
 
     function testClaimRewardRevertsIfUSDCTransferFails() public {
         ProofManagerV1 _proofManager = new ProofManagerV1();
-        BrokenUSDC brokenUSDC = new BrokenUSDC();
+        BrokenUsdc brokenUsdc = new BrokenUsdc();
 
-        _proofManager.initialize(fermah, lagrange, address(brokenUSDC), owner);
-        brokenUSDC.mint(address(_proofManager), 1_000e6);
+        _proofManager.initialize(fermah, lagrange, address(brokenUsdc), owner);
+        brokenUsdc.mint(address(_proofManager), 1_000e6);
 
         vm.prank(owner);
         _proofManager.submitProofRequest(
@@ -884,7 +884,7 @@ contract ProofManagerV1Test is Test {
         vm.prank(owner);
         _proofManager.submitProofValidationResult(IProofManager.ProofRequestIdentifier(1, 1), true);
 
-        vm.expectRevert(abi.encodeWithSelector(IProofManager.USDCTransferFailed.selector));
+        vm.expectRevert(abi.encodeWithSelector(IProofManager.UsdcTransferFailed.selector));
         vm.prank(fermah);
         _proofManager.claimReward();
     }

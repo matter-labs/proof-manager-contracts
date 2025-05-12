@@ -23,7 +23,7 @@ contract ProofManagerV1Harness is ProofManagerV1 {
 }
 
 /// @dev Mock USDC contract implementation.
-contract MockUSDC is IERC20 {
+contract MockUsdc is IERC20 {
     mapping(address => uint256) public balanceOf;
     string public constant name = "Mock USDC";
     uint8 public constant decimals = 6;
@@ -68,7 +68,7 @@ contract MockUSDC is IERC20 {
 }
 
 /// @dev Broken USDC contract implementation -- fails on transfer.
-contract BrokenUSDC is IERC20 {
+contract BrokenUsdc is IERC20 {
     mapping(address => uint256) public balanceOf;
     string public constant name = "Broken USDC";
     uint8 public constant decimals = 6;
