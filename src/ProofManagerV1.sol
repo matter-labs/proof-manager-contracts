@@ -3,7 +3,6 @@ pragma solidity ^0.8.29;
 
 import "./store/ProofManagerStorage.sol";
 import "./interfaces/IProofManager.sol";
-import { Transitions } from "./lib/Transitions.sol";
 
 import { OwnableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -12,7 +11,14 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 /// @author Matter Labs
 /// @notice Entry point for Proof Manager.
 contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, ProofManagerStorage {
-    using Transitions for ProofRequestStatus;
+    /*//////////////////////////////////////////
+                    Constants
+    //////////////////////////////////////////*/
+
+    /// @dev Hard-coded constant on Proof Request acknowledgement timeout time.
+    ///     Proving Networks have 2 minutes to commit to proving a proof request once posted on chain.
+    ///     Minimizes the proving downtime in case of communication failure.
+    uint256 private constant ACK_TIMEOUT = 2 minutes;
 
     /*//////////////////////////////////////////
                     Modifiers
@@ -43,9 +49,9 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
         _;
     }
 
-    /*//////////////////////////////////////////
-                    Initialization
-    //////////////////////////////////////////*/
+    // /*//////////////////////////////////////////
+    //                 Initialization
+    // //////////////////////////////////////////*/
 
     function initialize(address fermah, address lagrange, address usdc, address _owner)
         external
@@ -62,22 +68,31 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
         _initializeProvingNetwork(ProvingNetwork.Fermah, fermah);
         _initializeProvingNetwork(ProvingNetwork.Lagrange, lagrange);
 
-        preferredProvingNetwork = ProvingNetwork.None;
-        emit PreferredProvingNetworkSet(ProvingNetwork.None);
-        _requestCounter = 0;
+        _updatePreferredProvingNetwork(ProvingNetwork.None);
+        // NOTE: _requestCounter is set to 0 by default.
     }
 
     /*////////////////////////
             Getters
     ////////////////////////*/
 
-    /// @dev Getter for Proof Request.
-    function proofRequest(uint256 chainId, uint256 blockNumber)
+    /// @dev Computed Unacknowledged and TimedOut status on the fly. The state is not persisted on chain.
+    function proofRequest(ProofRequestIdentifier calldata id)
         external
         view
         returns (ProofRequest memory)
     {
-        return _proofRequests[chainId][blockNumber];
+        ProofRequest memory _proofRequest = _proofRequests[id.chainId][id.blockNumber];
+        if (_proofRequest.status == ProofRequestStatus.PendingAcknowledgement) {
+            if (block.timestamp > _proofRequest.submittedAt + ACK_TIMEOUT) {
+                _proofRequest.status = ProofRequestStatus.Unacknowledged;
+            }
+        } else if (_proofRequest.status == ProofRequestStatus.Committed) {
+            if (block.timestamp > _proofRequest.submittedAt + _proofRequest.timeoutAfter) {
+                _proofRequest.status = ProofRequestStatus.TimedOut;
+            }
+        }
+        return _proofRequest;
     }
 
     /// @dev Getter for Proving Network Info.
@@ -93,38 +108,36 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
             Proving Network Management
     //////////////////////////////////////////*/
 
-    /// @dev Useful for key rotation or key compromise.
+    /// @inheritdoc IProofManager
     function updateProvingNetworkAddress(ProvingNetwork provingNetwork, address addr)
         external
         onlyOwner
         provingNetworkNotNone(provingNetwork)
     {
         if (addr == address(0)) revert AddressCannotBeZero("proving network");
-        _provingNetworks[provingNetwork].addr = addr;
-        emit ProvingNetworkAddressChanged(provingNetwork, addr);
+        _updateProvingNetworkAddress(provingNetwork, addr);
     }
 
-    /// @dev Useful for Proving Network outage (Active to Inactive) or recovery (Inactive to Active).
+    /// @inheritdoc IProofManager
     function updateProvingNetworkStatus(ProvingNetwork provingNetwork, ProvingNetworkStatus status)
         external
         onlyOwner
         provingNetworkNotNone(provingNetwork)
     {
         _provingNetworks[provingNetwork].status = status;
-        emit ProvingNetworkStatusChanged(provingNetwork, status);
+        emit ProvingNetworkStatusUpdated(provingNetwork, status);
     }
 
-    /// @dev Used once per month to direct more proofs to the network that scored best previous month.
+    /// @inheritdoc IProofManager
     function updatePreferredProvingNetwork(ProvingNetwork provingNetwork) external onlyOwner {
-        preferredProvingNetwork = provingNetwork;
-        emit PreferredProvingNetworkSet(provingNetwork);
+        _updatePreferredProvingNetwork(provingNetwork);
     }
 
     /*//////////////////////////////////////////
             Proof Request Management
     //////////////////////////////////////////*/
 
-    /// @dev Submits a proof request. The proof is assigned to the next proving network in round robin.
+    /// @inheritdoc IProofManager
     function submitProofRequest(
         ProofRequestIdentifier calldata id,
         ProofRequestParams calldata params
@@ -133,13 +146,13 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
             revert DuplicatedProofRequest(id.chainId, id.blockNumber);
         }
         if (params.timeoutAfter == 0) revert InvalidProofRequestTimeout();
-        if (params.maxReward > WITHDRAW_LIMIT) revert RewardBiggerThanLimit(params.maxReward);
 
         ProvingNetwork assignedTo = _nextAssignee();
         bool refused = (assignedTo == ProvingNetwork.None)
             || _provingNetworks[assignedTo].status == ProvingNetworkStatus.Inactive;
 
-        ProofRequestStatus status = refused ? ProofRequestStatus.Refused : ProofRequestStatus.Ready;
+        ProofRequestStatus status =
+            refused ? ProofRequestStatus.Refused : ProofRequestStatus.PendingAcknowledgement;
 
         _proofRequests[id.chainId][id.blockNumber] = ProofRequest({
             proofInputsUrl: params.proofInputsUrl,
@@ -151,7 +164,7 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
             maxReward: params.maxReward,
             status: status,
             assignedTo: assignedTo,
-            provingNetworkPrice: 0,
+            requestedReward: 0,
             proof: bytes("")
         });
 
@@ -170,48 +183,34 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
         _requestCounter += 1;
     }
 
-    /// @dev Changes proof request's status. Used for timeout scenarios (unacknowledged/timed out) or validation from L1 (validated/validation failed).
-    ///     NOTE: When a proof request is marked as validated, the proof will be due for payment to the proving network that proved it.
-    function updateProofRequestStatus(ProofRequestIdentifier calldata id, ProofRequestStatus status)
+    /// @inheritdoc IProofManager
+    function submitProofValidationResult(ProofRequestIdentifier calldata id, bool isProofValid)
         external
         onlyOwner
     {
         ProofRequest storage _proofRequest = _proofRequests[id.chainId][id.blockNumber];
-        if (!_proofRequest.status.isRequestManagerAllowed(status)) {
-            revert TransitionNotAllowedForProofRequestManager(_proofRequest.status, status);
+        if (_proofRequest.status != ProofRequestStatus.Proven) {
+            revert ProofRequestIsNotProven(_proofRequest.status);
         }
-        // cannot mark proof as unacknowledged or timed out before the deadline
-        if (
-            (
-                status == ProofRequestStatus.Unacknowledged
-                    && block.timestamp <= _proofRequest.submittedAt + ACK_TIMEOUT
-            )
-                || (
-                    status == ProofRequestStatus.TimedOut
-                        && block.timestamp <= _proofRequest.submittedAt + _proofRequest.timeoutAfter
-                )
-        ) {
-            revert ProofRequestDidNotReachDeadline();
-        }
-
-        _proofRequest.status = status;
-        emit ProofStatusChanged(id.chainId, id.blockNumber, status);
-
-        if (status == ProofRequestStatus.Validated) {
+        if (isProofValid) {
+            _proofRequest.status = ProofRequestStatus.Validated;
             ProvingNetworkInfo storage _provingNetworkInfo =
                 _provingNetworks[_proofRequest.assignedTo];
-
-            _provingNetworkInfo.unclaimedProofs.push(id);
-            _provingNetworkInfo.paymentDue += _proofRequest.provingNetworkPrice;
+            _provingNetworkInfo.owedReward += _proofRequest.requestedReward;
+        } else {
+            _proofRequest.status = ProofRequestStatus.ValidationFailed;
         }
+        emit ProofValidationResult(
+            id.chainId, id.blockNumber, isProofValid, _proofRequest.assignedTo
+        );
     }
 
     /*//////////////////////////////////////////
             Proving Network Interactions
     //////////////////////////////////////////*/
 
-    /// @dev Acknowledges a proof request. The proving network can either commit to prove or refuse (due to price, availability, etc).
-    function acknowledgeProofRequest(ProofRequestIdentifier calldata id, bool accept)
+    /// @inheritdoc IProofManager
+    function acknowledgeProofRequest(ProofRequestIdentifier calldata id, bool accepted)
         external
         onlyAssignee(id)
     {
@@ -219,10 +218,10 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
         //      As such, onlyAssignee(id) will fail.
         ProofRequest storage _proofRequest = _proofRequests[id.chainId][id.blockNumber];
         ProofRequestStatus status =
-            accept ? ProofRequestStatus.Committed : ProofRequestStatus.Refused;
+            accepted ? ProofRequestStatus.Committed : ProofRequestStatus.Refused;
 
-        if (_proofRequest.status != ProofRequestStatus.Ready) {
-            revert TransitionNotAllowedForProvingNetwork(_proofRequest.status, status);
+        if (_proofRequest.status != ProofRequestStatus.PendingAcknowledgement) {
+            revert ProofRequestIsNotPendingAcknowledgement(_proofRequest.status);
         }
         if (block.timestamp > _proofRequest.submittedAt + ACK_TIMEOUT) {
             revert ProofRequestAcknowledgementDeadlinePassed();
@@ -230,20 +229,20 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
 
         _proofRequest.status = status;
 
-        emit ProofStatusChanged(id.chainId, id.blockNumber, _proofRequest.status);
+        emit ProofRequestAcknowledged(
+            id.chainId, id.blockNumber, accepted, _proofRequest.assignedTo
+        );
     }
 
-    /// @dev Submit proof for proof request.
+    /// @inheritdoc IProofManager
     function submitProof(
         ProofRequestIdentifier calldata id,
         bytes calldata proof,
-        uint256 provingNetworkPrice
+        uint256 requestedReward
     ) external onlyAssignee(id) {
         ProofRequest storage _proofRequest = _proofRequests[id.chainId][id.blockNumber];
         if (_proofRequest.status != ProofRequestStatus.Committed) {
-            revert TransitionNotAllowedForProvingNetwork(
-                _proofRequest.status, ProofRequestStatus.Proven
-            );
+            revert ProofRequestIsNotCommitted(_proofRequest.status);
         }
         if (block.timestamp > _proofRequest.submittedAt + _proofRequest.timeoutAfter) {
             revert ProofRequestProvingDeadlinePassed();
@@ -251,71 +250,42 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
 
         _proofRequest.status = ProofRequestStatus.Proven;
         _proofRequest.proof = proof;
-        _proofRequest.provingNetworkPrice = provingNetworkPrice <= _proofRequest.maxReward
-            ? provingNetworkPrice
-            : _proofRequest.maxReward;
+        _proofRequest.requestedReward =
+            requestedReward <= _proofRequest.maxReward ? requestedReward : _proofRequest.maxReward;
 
-        emit ProofStatusChanged(id.chainId, id.blockNumber, _proofRequest.status);
+        emit ProofRequestProven(id.chainId, id.blockNumber, proof, _proofRequest.assignedTo);
     }
 
-    /// @dev Withdraws payment for already validated proofs, up to WITHDRAW_LIMIT.
-    ///     NOTE: Successive calls can be made if you reached the limit.
-    function withdraw() external onlyProvingNetwork {
+    /// @inheritdoc IProofManager
+    function claimReward() external onlyProvingNetwork {
         ProvingNetwork provingNetwork = msg.sender == _provingNetworks[ProvingNetwork.Fermah].addr
             ? ProvingNetwork.Fermah
             : ProvingNetwork.Lagrange;
 
         ProvingNetworkInfo storage info = _provingNetworks[provingNetwork];
-        uint256 payableAmount = info.paymentDue;
-        if (payableAmount == 0) revert NoPaymentDue();
+        uint256 toPay = info.owedReward;
 
-        if (payableAmount > WITHDRAW_LIMIT) {
-            payableAmount = WITHDRAW_LIMIT;
-        }
+        if (toPay == 0) revert NoPaymentDue();
 
-        uint256 paid = 0;
+        uint256 balance = USDC.balanceOf(address(this));
 
-        // NOTE: Gas limit is not expected to be hit, given withdrawal limit.
-        // Assuming a mistake is made, the contract is upgradeable and that's the mitigation path.
-        while (info.unclaimedProofs.length > 0 && paid < payableAmount) {
-            uint256 last_index = info.unclaimedProofs.length - 1;
-            ProofRequestIdentifier memory id = info.unclaimedProofs[last_index];
+        if (toPay > balance) revert NotEnoughUSDCFunds(balance, toPay);
+        info.owedReward = 0;
+        if (!USDC.transfer(info.addr, toPay)) revert USDCTransferFailed();
 
-            ProofRequest storage _proofRequest = _proofRequests[id.chainId][id.blockNumber];
-
-            uint256 price = _proofRequest.provingNetworkPrice;
-            if (paid + price > payableAmount) break;
-
-            _proofRequest.status = ProofRequestStatus.Paid;
-            paid += price;
-
-            info.unclaimedProofs.pop();
-            emit ProofStatusChanged(id.chainId, id.blockNumber, _proofRequest.status);
-        }
-
-        info.paymentDue -= paid;
-        // sanity check, "should never happen"
-        require(paid > 0, "paid==0");
-
-        if (!USDC.transfer(msg.sender, paid)) revert USDCTransferFailed();
-
-        emit PaymentWithdrawn(provingNetwork, paid);
+        emit RewardClaimed(provingNetwork, toPay);
     }
 
-    /*////////////////////////
-            Helpers
-    ////////////////////////*/
+    // /*////////////////////////
+    //         Helpers
+    // ////////////////////////*/
 
-    /// @dev Initializes a proving network. Used in the constructor.
+    /// @dev Initializes a proving network's state. Used at initialization time.
     function _initializeProvingNetwork(ProvingNetwork provingNetwork, address addr) private {
-        ProvingNetworkInfo storage info = _provingNetworks[provingNetwork];
-        info.addr = addr;
-        info.status = ProvingNetworkStatus.Active;
-        delete info.unclaimedProofs;
-        info.paymentDue = 0;
-
-        emit ProvingNetworkAddressChanged(provingNetwork, addr);
-        emit ProvingNetworkStatusChanged(provingNetwork, ProvingNetworkStatus.Active);
+        // NOTE: owedReward is set to 0 by default.
+        // NOTE2: status is set to Active by default, but event still needs to be emitted.;
+        _updateProvingNetworkAddress(provingNetwork, addr);
+        emit ProvingNetworkStatusUpdated(provingNetwork, ProvingNetworkStatus.Active);
     }
 
     /// @dev Computes the next assignee based on current state. Does not change state!
@@ -325,5 +295,15 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
         if (mod == 0) return ProvingNetwork.Fermah;
         if (mod == 1) return ProvingNetwork.Lagrange;
         return preferredProvingNetwork;
+    }
+
+    function _updateProvingNetworkAddress(ProvingNetwork provingNetwork, address addr) private {
+        _provingNetworks[provingNetwork].addr = addr;
+        emit ProvingNetworkAddressUpdated(provingNetwork, addr);
+    }
+
+    function _updatePreferredProvingNetwork(ProvingNetwork provingNetwork) private {
+        preferredProvingNetwork = provingNetwork;
+        emit PreferredProvingNetworkUpdated(provingNetwork);
     }
 }
