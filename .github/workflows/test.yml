@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+env:
+  FOUNDRY_PROFILE: ci
+
+jobs:
+  test_scripts:
+    strategy:
+      fail-fast: true
+
+    name: Test scripts in isolation
+    runs-on: ubuntu-latest
+    env:
+      FERMAH_ADDRESS: "0x0000000000000000000000000000000000000001"
+      LAGRANGE_ADDRESS: "0x0000000000000000000000000000000000000002"
+      USDC_ADDRESS: "0x0000000000000000000000000000000000000003"
+      PROOF_MANAGER_OWNER_ADDRESS: "0x0000000000000000000000000000000000000004"
+      PROXY_OWNER_ADDRESS: "0x0000000000000000000000000000000000000005"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@82dee4ba654bd2146511f85f0d013af94670c4de # v1.4.0
+
+      - name: Show Forge version
+        run: |
+          forge --version
+
+      - name: Run forge script
+        run: |
+          forge script scripts/DeployProofManagerV1.s.sol:DeployProofManagerV1 -vvvv
+        id: script
+
+  test_and_coverage:
+    strategy:
+      fail-fast: true
+
+    name: Run tests and coverage (foundry)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@82dee4ba654bd2146511f85f0d013af94670c4de # v1.4.0
+
+      - name: Install LCOV
+        uses: hrishikesh-kadam/setup-lcov@6c1aa0cc9e1c02f9f58f01ac599f1064ccc83470 # v1.1.0
+
+      - name: Show Forge version
+        run: |
+          forge --version
+
+      - name: Run Forge fmt
+        run: |
+          forge fmt --check
+        id: fmt
+
+      - name: Run Forge build
+        run: |
+          forge build --sizes
+        id: build
+
+      - name: Run Forge tests & coverage
+        run: |
+          forge coverage
+        id: test-and-coverage
+
+      - name: Run Forge coverage
+        run: |
+          forge coverage --report lcov
+        id: coverage
+
+      - name: Filter directories from coverage
+        run: |
+          lcov \
+            --remove lcov.info 'test/*' \
+            --output-file lcov.info \
+            --rc branch_coverage=1
+
+      - name: Post coverage
+        if: github.event_name == 'pull_request'
+        uses: romeovs/lcov-reporter-action@2a28ec3e25fb7eae9cb537e9141603486f810d1a # not released
+        with:
+          delete-old-comments: true
+          lcov-file: lcov.info
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify minimum coverage
+        uses: zgosalvez/github-actions-report-lcov@ec80ffb0e31fc6b6c35e18a8ef83403b1a8a84ee # v4.1.25
+        with:
+          coverage-files: ./lcov.info
+          minimum-coverage: 100
+          github-token: ${{ secrets.GITHUB_TOKEN }}

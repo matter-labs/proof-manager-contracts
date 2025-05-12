@@ -30,6 +30,7 @@ sequenceDiagram
 ### Actors
 
 **Administrator** - other than deploying the smart contract, administrator can:
+
 - change addresses for proving networks (for instance, during key rotation or in case of hacked keys)
 - mark networks as active/inactive (for instance, if a proving network is having an outage or for some reason does not want to receive requests)
 - set the preferred network.
@@ -37,7 +38,8 @@ sequenceDiagram
 > NOTE: Preferred Network is a network that will receive a bulk (currently set at 50%) of proofs based on performance. This performance is evaluated on a monthly basis based on external component that will audit the on-chain traffic. This component will be open source and can be run by anyone else.
 
 **Proof Submitter** - submits proof requests and can transition proofs through a few stages, namely:
-1. from proof request being `Ready` to `Unacknowledged` (when acknowledgement deadline passed)
+
+1. from proof request being `PendingAcknowledgement` to `Unacknowledged` (when acknowledgement deadline passed)
 2. from proof request being `Committed` to `TimedOut` (when proof generation deadline passed)
 3. from proof request being `Proven` to `Validated` (when the proof received from proving network has been validated on settlement layer)
 
@@ -45,8 +47,9 @@ A proof submitter will listen for events emitted when the proof request switches
 
 > NOTE: For more details on proof request states, see [this section](#proof-request-state-machine).
 
-**Proving Network** - actions are scoped to their assigned 
-- acknowledges proof request (needs to be done within 2 minutes of submissions, either to commit proving the request or refuse proving altogether); this action will mark the request from `Ready` to `Committed`/`Refused`
+**Proving Network** - actions are scoped to their assigned
+
+- acknowledges proof request (needs to be done within 2 minutes of submissions, either to commit proving the request or refuse proving altogether); this action will mark the request from `PendingAcknowledgement` to `Committed`/`Refused`
 - submits proof once the proof is ready and before deadline (set at proof submission time); this action will mark the request from `Committed` to `Proven`
 - withdraws funds for `Validated` proofs; this action will mark all requests for the given network from `Validated` to `Paid`
 
@@ -60,8 +63,9 @@ In case of inactivity, proofs are marked as `Declined` by the Proof Manager.
 ## Proof Request State Machine
 
 Proof Requests have the following state machine:
+
 ```
-Ready // when a proof request is submitted
+PendingAcknowledgement // when a proof request is submitted
 Committed // when a proving network commits to generating a proof
 Refused // when a proving network refuses to prove a request or the network is inactive at assignment time
 Unacknowledged // when a proving network failed to acknowledge a proof request in the acknowledgement deadline
@@ -73,10 +77,11 @@ Paid // when the proving network withdraws funds
 ```
 
 Status transitions:
+
 ```
             +--> [Refused]
             |
-[Ready] ----+-----> [Unacknowledged]
+[PendingAcknowledgement] ----+-----> [Unacknowledged]
             |
             +--> [Committed] --> [TimedOut]
                             |
