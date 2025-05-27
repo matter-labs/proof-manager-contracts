@@ -1,0 +1,16 @@
+export RPC_URL=<YOUR_RPC_URL>
+export PRIVATE_KEY=<YOUR_PRIVATE_KEY>
+export ETHERSCAN_API_KEY=<YOUR_ETHERSCAN_API_KEY>
+export FERMAH_ADDRESS=<FERMAH_ADDRESS>
+export LAGRANGE_ADDRESS=<LAGRANGE_ADDRESS>
+export USDC_ADDRESS=<USDC_ADDRESS>
+export PROOF_MANAGER_OWNER_ADDRESS=<YOUR_PROOF_MANAGER_OWNER_ADDRESS>
+export PROXY_OWNER_ADDRESS=<YOUR_PROXY_OWNER_ADDRESS>
+
+forge build
+
+forge script scripts/DeployProofManagerV1.s.sol \
+    --broadcast \
+    --rpc-url $RPC_URL \
+    --private-key $PRIVATE_KEY \
+    -vvvv
