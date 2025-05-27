@@ -90,6 +90,19 @@ Status transitions:
                                         +--> [Validated] --> [Paid]
 ```
 
+## How to run
+
+### Prerequisites
+You need to have foundry installed. Please refer to their [guide](https://book.getfoundry.sh/getting-started/installation) for installation.
+
+## Deployment
+
+To deploy contracts you have to enter `scripts/deploy.sh` file and adjust the environmental variables to your needs.
+After that you can simply run 
+```shell
+./scripts/deploy.sh
+```
+
 ## FAQs
 
 **1. What happens with the proofs that are `Refused`/`Unacknowledged`/`TimedOut`/`ValidationFailed`?**

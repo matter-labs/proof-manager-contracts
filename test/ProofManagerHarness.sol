@@ -1,8 +1,8 @@
 // SPDX‑License‑Identifier: MIT
 pragma solidity ^0.8.29;
 
-import { ProofManagerV1 } from "../../src/ProofManagerV1.sol";
-import "../../src/interfaces/IProofManager.sol";
+import { ProofManagerV1 } from "../src/ProofManagerV1.sol";
+import "../src/interfaces/IProofManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @dev Test‑only wrapper that bypasses internal checks for ease of testing.
