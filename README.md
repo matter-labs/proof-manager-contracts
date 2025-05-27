@@ -94,3 +94,23 @@ Status transitions:
 
 **1. What happens with the proofs that are `Refused`/`Unacknowledged`/`TimedOut`/`ValidationFailed`?**
 A: The sequencer is responsible for noticing and generating the proofs in a manner it finds fit, that does not depend on Proving Networks. The default setup is to delegate to a centralized, internal prover subsystem.
+
+## License
+
+ZKsync Era proof manager contracts are distributed under the terms of the MIT license.
+
+See [LICENSE-MIT](./LICENSE-MIT) for details.
+
+## Official Links
+
+- [Website](https://zksync.io/)
+- [GitHub](https://github.com/matter-labs)
+- [ZK Credo](https://github.com/zksync/credo)
+- [Twitter](https://twitter.com/zksync)
+- [Twitter for Devs](https://twitter.com/zkSyncDevs)
+- [Discord](https://join.zksync.dev/)
+- [Mirror](https://zksync.mirror.xyz/)
+
+## Disclaimer
+
+ZKsync Era has been through lots of testing and audits. Although it is live, it is still in alpha state and will go through more audits and bug bounties programs. We would love to hear our community's thoughts and suggestions about it! It is important to state that forking it now can potentially lead to missing important security updates, critical features, and performance improvements.
