@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        git-submodule: ['lib/forge-std', 'lib/openzeppelin-contracts-upgradeable']
+        git-submodule: ['/lib/forge-std', '/lib/openzeppelin-contracts-upgradeable']
     steps:
       - name: Checkout latest code
         uses: actions/checkout@v4
@@ -42,10 +42,10 @@ jobs:
       - name: Install yarn
         run: npm install -g yarn license-checker
 
-      - name: Install dependencies in ${{ matrix.dir }}
-        working-directory: ${{ matrix.dir }}
+      - name: Install dependencies in ${{ matrix.git-submodule }}
+        working-directory: ${{ matrix.git-submodule }}
         run: yarn install
 
-      - name: Check licenses in ${{ matrix.dir }}
-        working-directory: ${{ matrix.dir }}
+      - name: Check licenses in ${{ matrix.git-submodule }}
+        working-directory: ${{ matrix.git-submodule }}
         run: npx license-checker --json --onlyAllow="$ALLOWED_LICENSES"
