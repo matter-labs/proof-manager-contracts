@@ -1,0 +1,57 @@
+name: Node license check
+
+on: pull_request
+
+env:
+  ALLOWED_LICENSES: >
+    MIT;
+    BSD;
+    ISC;
+    Apache-2.0;
+    Apache 2.0;
+    MPL-2.0;
+    LGPL-3.0;
+    LGPL-3.0-or-later;
+    CC0-1.0;
+    CC-BY-3.0;
+    CC-BY-4.0;
+    Python-2.0;
+    BlueOak-1.0.0;
+    PSF;
+    Public Domain;
+    WTFPL;
+    UNLICENSED;
+
+permissions:
+  contents: read
+
+jobs:
+  license-check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        git-submodule: ['lib/forge-std', 'lib/openzeppelin-contracts-upgradeable']
+    steps:
+      - name: Checkout latest code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #v4
+        with:
+          submodules: "recursive"
+          fetch-depth: 0
+
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20.18.1
+
+      - name: Install yarn
+        run: npm install -g yarn license-checker
+
+      - name: Install dependencies in ${{ matrix.git-submodule }}
+        working-directory: ${{ matrix.git-submodule }}
+        run: |
+          yarn install
+
+      - name: Check licenses in ${{ matrix.git-submodule }}
+        working-directory: ${{ matrix.git-submodule }}
+        run: |
+            npx license-checker --json --onlyAllow="$ALLOWED_LICENSES"
