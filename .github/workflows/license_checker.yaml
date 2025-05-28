@@ -44,7 +44,9 @@ jobs:
 
       - name: Install dependencies in ${{ matrix.git-submodule }}
         working-directory: ${{ matrix.git-submodule }}
-        run: yarn install
+        run: |
+          yarn install
+          echo $PWD
 
       - name: Check licenses in ${{ matrix.git-submodule }}
         working-directory: ${{ matrix.git-submodule }}
