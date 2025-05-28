@@ -47,7 +47,11 @@ jobs:
         run: |
           yarn install
           echo $PWD
+          ls
 
       - name: Check licenses in ${{ matrix.git-submodule }}
         working-directory: ${{ matrix.git-submodule }}
-        run: npx license-checker --json --onlyAllow="$ALLOWED_LICENSES"
+        run: |
+            echo $PWD
+            ls
+            npx license-checker --json --onlyAllow="$ALLOWED_LICENSES"
