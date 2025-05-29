@@ -98,8 +98,8 @@ jobs:
           GITHUB_BASE_REF: ${{ github.base_ref }}
         run: |
           gh auth setup-git
-          chmod +x .github/scripts/github/report_coverage.sh
-          .github/scripts/github/report_coverage.sh
+          chmod +x ./scripts/github/report_coverage.sh
+          ./scripts/github/report_coverage.sh
 
       - name: Verify minimum coverage
         uses: zgosalvez/github-actions-report-lcov@ec80ffb0e31fc6b6c35e18a8ef83403b1a8a84ee # v4.1.25
