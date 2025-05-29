@@ -3,7 +3,7 @@
 set -euo pipefail
 
 LCOV_FILE="lcov.info"
-REPO="your_org_or_user/your_repo"  # ← Replace with your GitHub repo
+REPO="matter-labs/proof-manager-contracts"  # ← Replace with your GitHub repo
 REF="${GITHUB_HEAD_REF:-main}"
 
 # Ensure tools
