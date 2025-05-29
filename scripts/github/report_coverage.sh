@@ -4,7 +4,7 @@ set -euo pipefail
 
 LCOV_FILE="lcov.info"
 
-# Verify required tools
+# Check required tools
 for cmd in gh awk grep; do
   if ! command -v "$cmd" &> /dev/null; then
     echo "Error: '$cmd' is not installed."
@@ -12,10 +12,7 @@ for cmd in gh awk grep; do
   fi
 done
 
-if [[ ! -f "$LCOV_FILE" ]]; then
-  echo "Error: '$LCOV_FILE' not found."
-  exit 1
-fi
+[[ ! -f "$LCOV_FILE" ]] && echo "Error: $LCOV_FILE not found." && exit 1
 
 # Initialize
 COMMENT="### 🔍 Coverage Report
@@ -26,54 +23,45 @@ Coverage after merging \`${GITHUB_HEAD_REF:-HEAD}\` into \`${GITHUB_BASE_REF:-ma
 | File | Stmts | Branches | Funcs | Lines | Uncovered Lines |
 |------|-------|----------|-------|-------|-----------------|"
 
-# Temporary variables
+# Track coverage per file
 current_file=""
+stmt_hit=0; stmt_total=0
+func_hit=0; func_total=0
+branch_hit=0; branch_total=0
 declare -a uncovered_lines
-stmt_hit=0
-stmt_total=0
-func_hit=0
-func_total=0
-branch_hit=0
-branch_total=0
 
 print_file_summary() {
   if [[ -n "$current_file" ]]; then
-    stmt_cov=$(awk "BEGIN {printf \"%.2f\", ($stmt_total ? $stmt_hit / $stmt_total * 100 : 0)}")
-    branch_cov=$(awk "BEGIN {printf \"%.2f\", ($branch_total ? $branch_hit / $branch_total * 100 : 0)}")
-    func_cov=$(awk "BEGIN {printf \"%.2f\", ($func_total ? $func_hit / $func_total * 100 : 0)}")
+    stmt_cov=$(printf "%.2f" "$(bc <<< "scale=4; if ($stmt_total > 0) $stmt_hit*100/$stmt_total else 0")")
+    branch_cov=$(printf "%.2f" "$(bc <<< "scale=4; if ($branch_total > 0) $branch_hit*100/$branch_total else 0")")
+    func_cov=$(printf "%.2f" "$(bc <<< "scale=4; if ($func_total > 0) $func_hit*100/$func_total else 0")")
     line_cov="$stmt_cov"
-    uncovered_line_str=$(IFS=, ; echo "${uncovered_lines[*]}")
+    uncovered_str=$(IFS=, ; echo "${uncovered_lines[*]}")
     COMMENT+="
-| $current_file | ${stmt_cov}% | ${branch_cov}% | ${func_cov}% | ${line_cov}% | ${uncovered_line_str} |"
+| $current_file | ${stmt_cov}% | ${branch_cov}% | ${func_cov}% | ${line_cov}% | ${uncovered_str} |"
   fi
 }
 
-# Parse lcov.info
+# Parse the lcov file
 while IFS= read -r line; do
   case "$line" in
     SF:*)
       print_file_summary
       current_file=$(basename "${line#SF:}")
-      uncovered_lines=()
       stmt_hit=0; stmt_total=0
       func_hit=0; func_total=0
       branch_hit=0; branch_total=0
+      uncovered_lines=()
       ;;
     DA:*)
       stmt_total=$((stmt_total + 1))
-      hits=$(echo "$line" | cut -d',' -f2)
-      lineno=$(echo "$line" | cut -d',' -f1 | cut -d':' -f2)
-      if [[ "$hits" -gt 0 ]]; then
-        stmt_hit=$((stmt_hit + 1))
-      else
-        uncovered_lines+=("$lineno")
-      fi
+      lineno=$(cut -d',' -f1 <<< "$line" | cut -d':' -f2)
+      hits=$(cut -d',' -f2 <<< "$line")
+      [[ "$hits" -gt 0 ]] && stmt_hit=$((stmt_hit + 1)) || uncovered_lines+=("$lineno")
       ;;
     FNDA:*)
-      hits=$(echo "$line" | cut -d',' -f1 | cut -d':' -f2)
-      if [[ "$hits" -gt 0 ]]; then
-        func_hit=$((func_hit + 1))
-      fi
+      hits=$(cut -d',' -f1 <<< "$line" | cut -d':' -f2)
+      [[ "$hits" -gt 0 ]] && func_hit=$((func_hit + 1))
       ;;
     FNF:*)
       func_total=$((func_total + ${line#FNF:}))
@@ -83,8 +71,8 @@ while IFS= read -r line; do
       ;;
     BRDA:*)
       branch_total=$((branch_total + 1))
-      parts=(${line//,/ })
-      [[ "${parts[3]}" != "-" && "${parts[3]}" -gt 0 ]] && branch_hit=$((branch_hit + 1))
+      val=$(cut -d',' -f4 <<< "$line")
+      [[ "$val" != "-" && "$val" -gt 0 ]] && branch_hit=$((branch_hit + 1))
       ;;
     end_of_record)
       print_file_summary
@@ -97,9 +85,9 @@ COMMENT+="
 
 </details>"
 
-# Post to GitHub PR
+# Post the comment to GitHub PR
 if [[ -z "${PR_NUMBER:-}" ]]; then
-  echo "Error: PR_NUMBER environment variable not set."
+  echo "❌ Error: PR_NUMBER env var is not set"
   exit 1
 fi
 
