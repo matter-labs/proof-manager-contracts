@@ -89,6 +89,13 @@ jobs:
             --output-file lcov.info \
             --rc branch_coverage=1
 
+      - name: Upload logs
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: lcov.info
+          path: lcov.info
+
       - name: Post coverage
         if: github.event_name == 'pull_request'
         env:
