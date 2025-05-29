@@ -38,7 +38,7 @@ jobs:
 
       - name: Run forge script
         run: |
-          forge script scripts/deployment/DeployProofManagerV1.s.sol:DeployProofManagerV1 -vvvv
+          forge script scripts/DeployProofManagerV1.s.sol:DeployProofManagerV1 -vvvv
         id: script
 
   test_and_coverage:
@@ -85,21 +85,17 @@ jobs:
       - name: Filter directories from coverage
         run: |
           lcov \
-            --remove lcov.info \
+            --remove lcov.info 'test/*' 'scripts/*' \
             --output-file lcov.info \
             --rc branch_coverage=1
 
       - name: Post coverage
         if: github.event_name == 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          GITHUB_HEAD_REF: ${{ github.head_ref }}
-          GITHUB_BASE_REF: ${{ github.base_ref }}
-        run: |
-          gh auth setup-git
-          chmod +x ./scripts/github/report_coverage.sh
-          ./scripts/github/report_coverage.sh
+        uses: romeovs/lcov-reporter-action@2a28ec3e25fb7eae9cb537e9141603486f810d1a # not released
+        with:
+          delete-old-comments: true
+          lcov-file: lcov.info
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify minimum coverage
         uses: zgosalvez/github-actions-report-lcov@ec80ffb0e31fc6b6c35e18a8ef83403b1a8a84ee # v4.1.25
