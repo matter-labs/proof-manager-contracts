@@ -36,12 +36,14 @@ declare -a uncovered_lines
 # Group uncovered lines: 1,2,3,5,6 → 1-3,5-6
 group_lines() {
   local -a lines=($(printf '%s\n' "${uncovered_lines[@]}" | sort -n))
-  local output=()
-  local start end
+  local -a output=()
+  local start="" end=""
 
   for i in "${!lines[@]}"; do
-    [[ -z "$start" ]] && start=${lines[$i]} && end=$start && continue
-    if [[ ${lines[$i]} -eq $((end + 1)) ]]; then
+    if [[ -z "$start" ]]; then
+      start=${lines[$i]}
+      end=$start
+    elif [[ ${lines[$i]} -eq $((end + 1)) ]]; then
       end=${lines[$i]}
     else
       [[ "$start" -eq "$end" ]] && output+=("$start") || output+=("$start-$end")
@@ -50,9 +52,12 @@ group_lines() {
     fi
   done
 
-  [[ -n "$start" ]] && ([[ "$start" -eq "$end" ]] && output+=("$start") || output+=("$start-$end"))
+  # Flush last range
+  if [[ -n "$start" ]]; then
+    [[ "$start" -eq "$end" ]] && output+=("$start") || output+=("$start-$end")
+  fi
 
-  # Make links to GitHub
+  # Format GitHub links
   local link_base="https://github.com/$REPO/blob/$REF/$relative_path"
   local link_list=()
   for range in "${output[@]}"; do
@@ -61,6 +66,7 @@ group_lines() {
   done
   IFS=", " ; echo "${link_list[*]}"
 }
+
 
 # Print row for each file
 print_file_summary() {
