@@ -2,58 +2,57 @@
 
 set -e
 
-# File paths
 LCOV_FILE="lcov.info"
 TEMP_DIR=$(mktemp -d)
 GENHTML_OUTPUT="${TEMP_DIR}/genhtml"
+SUMMARY_FILE="${GENHTML_OUTPUT}/coverage.info"
 
-# Required for GitHub CLI
-if ! command -v gh &> /dev/null; then
-  echo "GitHub CLI (gh) is required but not installed."
-  exit 1
-fi
+# Ensure dependencies exist
+command -v lcov >/dev/null || { echo "lcov is required but not found."; exit 1; }
+command -v genhtml >/dev/null || { echo "genhtml is required but not found."; exit 1; }
+command -v gh >/dev/null || { echo "gh CLI is required but not found."; exit 1; }
 
-# Check for lcov file
+# Check file existence
 if [[ ! -f "$LCOV_FILE" ]]; then
   echo "Coverage file '$LCOV_FILE' not found!"
   exit 1
 fi
 
-# Generate HTML summary (extracts overall percentage)
-SUMMARY=$(genhtml "$LCOV_FILE" --output-directory "$GENHTML_OUTPUT" --quiet --branch-coverage)
-TOTAL_COVERAGE=$(echo "$SUMMARY" | grep -oP 'lines......: \K[0-9.]+%' | head -n1)
+# Generate HTML and extract summary using genhtml
+genhtml "$LCOV_FILE" --output-directory "$GENHTML_OUTPUT" --quiet --branch-coverage > "${TEMP_DIR}/summary.log"
 
-# Build the comment body
+# Get total coverage from summary
+TOTAL_LINE_COVERAGE=$(grep "lines......:" "${TEMP_DIR}/summary.log" | head -n1 | awk '{print $2}')
+TOTAL_BRANCH_COVERAGE=$(grep "branches...:" "${TEMP_DIR}/summary.log" | head -n1 | awk '{print $2}')
+TOTAL_FUNC_COVERAGE=$(grep "functions..:" "${TEMP_DIR}/summary.log" | head -n1 | awk '{print $2}')
+TOTAL_STMT_COVERAGE=$TOTAL_LINE_COVERAGE # lcov doesn't report stmts separately, use lines as proxy
+
+# Begin comment content
 COMMENT="### 🔍 Coverage Report
 Coverage after merging \`${GITHUB_HEAD_REF}\` into \`${GITHUB_BASE_REF}\` will be
 
-**${TOTAL_COVERAGE}**
+**${TOTAL_LINE_COVERAGE}**
 
 <details><summary>Coverage Report</summary>
 
 | File | Stmts | Branches | Funcs | Lines | Uncovered Lines |
 |------|-------|----------|-------|-------|-----------------|"
 
-# Extract per-file info
-CURRENT_FILE=""
-while IFS= read -r line; do
-  if [[ "$line" =~ ^SF:(.*) ]]; then
-    FILE_PATH="${BASH_REMATCH[1]}"
-    FILE_NAME=$(basename "$FILE_PATH")
-    CURRENT_FILE="$FILE_NAME"
-  elif [[ "$line" =~ ^DA: ]]; then
-    LINE_NUM=$(echo "$line" | cut -d',' -f1 | cut -d':' -f2)
-    HIT_COUNT=$(echo "$line" | cut -d',' -f2)
-    if [[ "$HIT_COUNT" -eq 0 ]]; then
-      UNCOVERED_LINES+=("$LINE_NUM")
-    fi
-  elif [[ "$line" == "end_of_record" ]]; then
-    # Dummy per-file report (for simplicity, using 100% for all categories)
-    COMMENT+="
-| [$CURRENT_FILE](./$FILE_PATH) | 100% | 100% | 100% | 100% | |"
-    UNCOVERED_LINES=()
-  fi
-done < "$LCOV_FILE"
+# Parse genhtml-generated per-file summaries
+FILE_SUMMARY="${GENHTML_OUTPUT}/index.html"
+
+# Extract per-file stats
+grep -Po '(?<=<td class="headerCovTableEntryLo" colspan="2">)[^<]+</td>.*?<td class="headerCovTableEntryLo">[^<]+</td>.*?<td class="headerCovTableEntryLo">[^<]+</td>.*?<td class="headerCovTableEntryLo">[^<]+</td>' "$FILE_SUMMARY" |
+while IFS= read -r row; do
+  FILE=$(echo "$row" | sed -n 's/.*>\(.*\.sol\)<.*/\1/p')
+  STMT=$(echo "$row" | grep -Po '.*<td class="headerCovTableEntryLo">\K[^<]+' | sed -n 1p)
+  BR=$(echo "$row" | grep -Po '.*<td class="headerCovTableEntryLo">\K[^<]+' | sed -n 2p)
+  FUNC=$(echo "$row" | grep -Po '.*<td class="headerCovTableEntryLo">\K[^<]+' | sed -n 3p)
+  LINE=$(echo "$row" | grep -Po '.*<td class="headerCovTableEntryLo">\K[^<]+' | sed -n 4p)
+  
+  COMMENT+="
+| $FILE | $STMT | $BR | $FUNC | $LINE | |"
+done
 
 COMMENT+="
 
