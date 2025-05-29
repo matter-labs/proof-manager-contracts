@@ -5,7 +5,7 @@ import { Script, console } from "forge-std/Script.sol";
 import { ProxyAdmin } from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import { TransparentUpgradeableProxy } from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import { ProofManagerV1 } from "../src/ProofManagerV1.sol";
+import { ProofManagerV1 } from "../../src/ProofManagerV1.sol";
 
 /// @author Matter Labs
 /// @notice Deploys the ProofManagerV1 contract behind UpgradeableProxy.
