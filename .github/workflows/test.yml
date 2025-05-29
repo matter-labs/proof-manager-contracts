@@ -38,7 +38,7 @@ jobs:
 
       - name: Run forge script
         run: |
-          forge script scripts/DeployProofManagerV1.s.sol:DeployProofManagerV1 -vvvv
+          forge script scripts/deployment/DeployProofManagerV1.s.sol:DeployProofManagerV1 -vvvv
         id: script
 
   test_and_coverage:
