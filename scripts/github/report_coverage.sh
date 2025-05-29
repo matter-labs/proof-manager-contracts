@@ -3,61 +3,85 @@
 set -e
 
 LCOV_FILE="lcov.info"
-TEMP_DIR=$(mktemp -d)
-GENHTML_OUTPUT="${TEMP_DIR}/genhtml"
-SUMMARY_FILE="${GENHTML_OUTPUT}/coverage.info"
 
-# Ensure dependencies exist
-command -v lcov >/dev/null || { echo "lcov is required but not found."; exit 1; }
-command -v genhtml >/dev/null || { echo "genhtml is required but not found."; exit 1; }
-command -v gh >/dev/null || { echo "gh CLI is required but not found."; exit 1; }
+# Ensure required tools are installed
+for cmd in lcov gh; do
+  if ! command -v $cmd &> /dev/null; then
+    echo "Error: $cmd is not installed."
+    exit 1
+  fi
+done
 
-# Check file existence
+# Check if lcov.info exists
 if [[ ! -f "$LCOV_FILE" ]]; then
-  echo "Coverage file '$LCOV_FILE' not found!"
+  echo "Error: $LCOV_FILE not found."
   exit 1
 fi
 
-# Generate HTML and extract summary using genhtml
-genhtml "$LCOV_FILE" --output-directory "$GENHTML_OUTPUT" --quiet --branch-coverage > "${TEMP_DIR}/summary.log"
+# Initialize total counters
+total_lines=0
+total_lines_hit=0
+total_branches=0
+total_branches_hit=0
+total_functions=0
+total_functions_hit=0
 
-# Get total coverage from summary
-TOTAL_LINE_COVERAGE=$(grep "lines......:" "${TEMP_DIR}/summary.log" | head -n1 | awk '{print $2}')
-TOTAL_BRANCH_COVERAGE=$(grep "branches...:" "${TEMP_DIR}/summary.log" | head -n1 | awk '{print $2}')
-TOTAL_FUNC_COVERAGE=$(grep "functions..:" "${TEMP_DIR}/summary.log" | head -n1 | awk '{print $2}')
-TOTAL_STMT_COVERAGE=$TOTAL_LINE_COVERAGE # lcov doesn't report stmts separately, use lines as proxy
-
-# Begin comment content
+# Initialize comment content
 COMMENT="### 🔍 Coverage Report
-Coverage after merging \`${GITHUB_HEAD_REF}\` into \`${GITHUB_BASE_REF}\` will be
+Coverage after merging \`${GITHUB_HEAD_REF}\` into \`${GITHUB_BASE_REF}\`:
 
-**${TOTAL_LINE_COVERAGE}**
+<details><summary>Coverage Details</summary>
 
-<details><summary>Coverage Report</summary>
+| File | Stmts | Branches | Funcs | Lines |
+|------|-------|----------|-------|-------|"
 
-| File | Stmts | Branches | Funcs | Lines | Uncovered Lines |
-|------|-------|----------|-------|-------|-----------------|"
+# Parse lcov.info
+awk '
+  /^SF:/ { file=$0; sub(/^SF:/, "", file); nextfile=1 }
+  /^DA:/ { split($0, a, ","); total_lines++; if (a[2] > 0) total_lines_hit++ }
+  /^BRDA:/ { split($0, a, ","); total_branches++; if (a[4] != "-" && a[4] > 0) total_branches_hit++ }
+  /^FN:/ { total_functions++ }
+  /^FNDA:/ { split($0, a, ","); if (a[1] == "FNDA" && a[2] > 0) total_functions_hit++ }
+  /^end_of_record/ {
+    if (nextfile) {
+      stmt_cov = total_lines ? (total_lines_hit / total_lines) * 100 : 0
+      branch_cov = total_branches ? (total_branches_hit / total_branches) * 100 : 0
+      func_cov = total_functions ? (total_functions_hit / total_functions) * 100 : 0
+      line_cov = stmt_cov  # Assuming statements coverage is equivalent to lines coverage
 
-# Parse genhtml-generated per-file summaries
-FILE_SUMMARY="${GENHTML_OUTPUT}/index.html"
+      printf "| %s | %.2f%% | %.2f%% | %.2f%% | %.2f%% |\n", file, stmt_cov, branch_cov, func_cov, line_cov
 
-# Extract per-file stats
-grep -Po '(?<=<td class="headerCovTableEntryLo" colspan="2">)[^<]+</td>.*?<td class="headerCovTableEntryLo">[^<]+</td>.*?<td class="headerCovTableEntryLo">[^<]+</td>.*?<td class="headerCovTableEntryLo">[^<]+</td>' "$FILE_SUMMARY" |
-while IFS= read -r row; do
-  FILE=$(echo "$row" | sed -n 's/.*>\(.*\.sol\)<.*/\1/p')
-  STMT=$(echo "$row" | grep -Po '.*<td class="headerCovTableEntryLo">\K[^<]+' | sed -n 1p)
-  BR=$(echo "$row" | grep -Po '.*<td class="headerCovTableEntryLo">\K[^<]+' | sed -n 2p)
-  FUNC=$(echo "$row" | grep -Po '.*<td class="headerCovTableEntryLo">\K[^<]+' | sed -n 3p)
-  LINE=$(echo "$row" | grep -Po '.*<td class="headerCovTableEntryLo">\K[^<]+' | sed -n 4p)
-  
-  COMMENT+="
-| $FILE | $STMT | $BR | $FUNC | $LINE | |"
-done
+      # Reset counters
+      total_lines=0; total_lines_hit=0
+      total_branches=0; total_branches_hit=0
+      total_functions=0; total_functions_hit=0
+      nextfile=0
+    }
+  }
+' "$LCOV_FILE" >> temp_coverage_report.md
 
-COMMENT+="
+# Append per-file coverage to comment
+cat temp_coverage_report.md >> temp_comment.md
+rm temp_coverage_report.md
 
-</details>"
+# Calculate total coverage
+total_stmt_cov=$(lcov --summary "$LCOV_FILE" | awk '/lines\.*:/{print $2}')
+total_branch_cov=$(lcov --summary "$LCOV_FILE" | awk '/branches\.*:/{print $2}')
+total_func_cov=$(lcov --summary "$LCOV_FILE" | awk '/functions\.*:/{print $2}')
+total_line_cov=$total_stmt_cov  # Assuming statements coverage is equivalent to lines coverage
+
+# Append total coverage to comment
+echo "
+</details>
+
+**Total Coverage:**
+
+- Statements: $total_stmt_cov
+- Branches: $total_branch_cov
+- Functions: $total_func_cov
+- Lines: $total_line_cov
+" >> temp_comment.md
 
 # Post comment to PR
-echo "Posting comment to PR #${PR_NUMBER}..."
-gh pr comment "$PR_NUMBER" --body "$COMMENT"
+gh pr comment "$PR_NUMBER" --body "$(cat temp_comment.md)"
+rm temp_comment.md
