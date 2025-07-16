@@ -1,3 +1,5 @@
+export NETWORK=${NETWORK:-"L2"}
+
 export RPC_URL=${RPC_URL:-"http://127.0.0.1:8545"}
 export PRIVATE_KEY=${PRIVATE_KEY:-"0x0000000000000000000000000000000000000000000000000000000000000000"}
 export ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY:-"0000000000000000000000000000000000000000000000000000000000000000"}
@@ -6,8 +8,6 @@ export LAGRANGE_ADDRESS=${LAGRANGE_ADDRESS:-"0x000000000000000000000000000000000
 export USDC_ADDRESS=${USDC_ADDRESS:-"0x0000000000000000000000000000000000000001"}
 export PROOF_MANAGER_OWNER_ADDRESS=${PROOF_MANAGER_OWNER_ADDRESS:-"0x0000000000000000000000000000000000000001"}
 export PROXY_OWNER_ADDRESS=${PROXY_OWNER_ADDRESS:-"0x0000000000000000000000000000000000000001"}
-
-forge build
 
 export GAS_PRICE=$(cast gas-price --rpc-url $RPC_URL)
 
@@ -22,9 +22,31 @@ echo "USDC_ADDRESS: $USDC_ADDRESS"
 echo "PROOF_MANAGER_OWNER_ADDRESS: $PROOF_MANAGER_OWNER_ADDRESS"
 echo "PROXY_OWNER_ADDRESS: $PROXY_OWNER_ADDRESS"
 
-forge script scripts/deployment/DeployProofManagerV1.s.sol \
-    --broadcast \
-    --rpc-url $RPC_URL \
-    --private-key $PRIVATE_KEY \
-    --with-gas-price $GAS_PRICE \
-    -vvvv
+if [ "$NETWORK" == "L2" ]; then
+    forge build --zksync
+elif [ "$NETWORK" == "L1" ]; then
+    forge build
+else
+    echo "Invalid network, expected L1 or L2, got: $NETWORK"
+    exit 1
+fi
+
+if [ "$NETWORK" == "L2" ]; then
+    forge script --zksync scripts/deployment/DeployProofManagerV1.s.sol \
+        --broadcast \
+        --rpc-url $RPC_URL \
+        --private-key $PRIVATE_KEY \
+        --with-gas-price $GAS_PRICE \
+        --slow \
+        -vvvv
+elif [ "$NETWORK" == "L1" ]; then
+    forge script scripts/deployment/DeployProofManagerV1.s.sol \
+        --broadcast \
+        --rpc-url $RPC_URL \
+        --private-key $PRIVATE_KEY \
+        --with-gas-price $GAS_PRICE \
+        -vvvv
+else
+    echo "Invalid network, expected L1 or L2, got: $NETWORK"
+    exit 1
+fi
