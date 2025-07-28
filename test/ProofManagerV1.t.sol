@@ -448,7 +448,7 @@ contract ProofManagerV1Test is Test {
                 assignedTo: IProofManager.ProvingNetwork.Fermah,
                 requestedReward: 0,
                 proof: bytes(""),
-                requestId: 1
+                requestId: 0
             })
         );
     }
@@ -563,7 +563,7 @@ contract ProofManagerV1Test is Test {
                 assignedTo: IProofManager.ProvingNetwork.Fermah,
                 requestedReward: 0,
                 proof: bytes(""),
-                requestId: 1
+                requestId: 0
             })
         );
         assertProvingNetworkInfo(
