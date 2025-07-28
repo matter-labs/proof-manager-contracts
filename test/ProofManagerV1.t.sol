@@ -1046,7 +1046,11 @@ contract ProofManagerV1Test is Test {
             "Proving network requested reward should be set correctly"
         );
         assertEq(proofRequest.proof, expectedProofRequest.proof, "Proof should be set correctly");
-        assertEq(proofRequest.requestId, expectedProofRequest.requestId, "Request ID should be set correctly");
+        assertEq(
+            proofRequest.requestId,
+            expectedProofRequest.requestId,
+            "Request ID should be set correctly"
+        );
     }
 
     /*//////////////////////////////////////////
