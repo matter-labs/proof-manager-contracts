@@ -165,7 +165,8 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
             status: status,
             assignedTo: assignedTo,
             requestedReward: 0,
-            proof: bytes("")
+            proof: bytes(""),
+            requestId: _requestCounter
         });
 
         emit ProofRequestSubmitted(
@@ -177,7 +178,8 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
             params.protocolMinor,
             params.protocolPatch,
             params.timeoutAfter,
-            params.maxReward
+            params.maxReward,
+            _requestCounter
         );
 
         // overflow is not a problem here, the number of proofs is unfathomably large (we'd need some ~10**66 proofs per second for 100 years straight for overflow to happen)

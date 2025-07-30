@@ -264,7 +264,8 @@ contract ProofManagerV1Test is Test {
             27,
             0,
             3600,
-            4e6
+            4e6,
+            0
         );
 
         vm.prank(owner);
@@ -284,7 +285,8 @@ contract ProofManagerV1Test is Test {
                 status: IProofManager.ProofRequestStatus.PendingAcknowledgement,
                 assignedTo: IProofManager.ProvingNetwork.Fermah,
                 requestedReward: 0,
-                proof: bytes("")
+                proof: bytes(""),
+                requestId: 0
             })
         );
     }
@@ -408,7 +410,8 @@ contract ProofManagerV1Test is Test {
                     status: outputs[i].status,
                     assignedTo: outputs[i].network,
                     requestedReward: 0,
-                    proof: bytes("")
+                    proof: bytes(""),
+                    requestId: i
                 })
             );
         }
@@ -444,7 +447,8 @@ contract ProofManagerV1Test is Test {
                 status: IProofManager.ProofRequestStatus.Validated,
                 assignedTo: IProofManager.ProvingNetwork.Fermah,
                 requestedReward: 0,
-                proof: bytes("")
+                proof: bytes(""),
+                requestId: 0
             })
         );
     }
@@ -558,7 +562,8 @@ contract ProofManagerV1Test is Test {
                 status: IProofManager.ProofRequestStatus.ValidationFailed,
                 assignedTo: IProofManager.ProvingNetwork.Fermah,
                 requestedReward: 0,
-                proof: bytes("")
+                proof: bytes(""),
+                requestId: 0
             })
         );
         assertProvingNetworkInfo(
@@ -1041,6 +1046,11 @@ contract ProofManagerV1Test is Test {
             "Proving network requested reward should be set correctly"
         );
         assertEq(proofRequest.proof, expectedProofRequest.proof, "Proof should be set correctly");
+        assertEq(
+            proofRequest.requestId,
+            expectedProofRequest.requestId,
+            "Request ID should be set correctly"
+        );
     }
 
     /*//////////////////////////////////////////

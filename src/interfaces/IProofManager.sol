@@ -90,6 +90,7 @@ interface IProofManager {
         uint256 maxReward;
         uint256 requestedReward;
         bytes proof;
+        uint256 requestId;
     }
 
     /*//////////////////////////////////////////
@@ -106,7 +107,8 @@ interface IProofManager {
         uint32 protocolMinor,
         uint32 protocolPatch,
         uint256 timeoutAfter,
-        uint256 maxReward
+        uint256 maxReward,
+        uint256 requestId
     );
 
     /// @dev Emitted when a proof request validation result is submitted.
