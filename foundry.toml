@@ -2,6 +2,7 @@
 src = "src"
 out = "out"
 script = "scripts/deployment"
+auto_detect_solc = true
 libs = ["lib"]
 solc = "0.8.29"
 optimizer = true
