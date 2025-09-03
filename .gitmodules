@@ -6,4 +6,4 @@
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable
 [submodule "lib/era-contracts"]
 	path = lib/era-contracts
-	url = https://github.com/MatterLabs/era-contracts
+	url = https://github.com/matter-labs/era-contracts
