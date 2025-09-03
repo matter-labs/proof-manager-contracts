@@ -25,6 +25,7 @@ contract ProofManagerV1Harness is ProofManagerV1 {
 /// @dev Mock USDC contract implementation.
 contract MockUsdc is IERC20 {
     mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowances;
     string public constant name = "Mock USDC";
     uint8 public constant decimals = 6;
 
@@ -42,23 +43,25 @@ contract MockUsdc is IERC20 {
         balanceOf[to] += amt;
     }
 
+    function approve(address spender, uint256 amt) external returns (bool) {
+        allowances[msg.sender][spender] = amt;
+        return true;
+    }
+
+    function transferFrom(address from, address to, uint256 amt) external returns (bool) {
+        allowances[from][msg.sender] -= amt;
+        balanceOf[from] -= amt;
+        balanceOf[to] += amt;
+
+        return true;
+    }
     /*/////////////////////////////////////////
             Implemented due to interface
     /////////////////////////////////////////*/
 
     /// @dev Not used, but required by interface.
-    function transferFrom(address, address, uint256) external pure returns (bool) {
-        return true;
-    }
-
-    /// @dev Not used, but required by interface.
     function allowance(address, address) external pure returns (uint256) {
         return 0;
-    }
-
-    /// @dev Not used, but required by interface.
-    function approve(address, uint256) external pure returns (bool) {
-        return true;
     }
 
     /// @dev Not used, but required by interface.
