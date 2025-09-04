@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import { ProofManagerV1 } from "../src/ProofManagerV1.sol";
 import "../src/interfaces/IProofManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /// @dev Test‑only wrapper that bypasses internal checks for ease of testing.
 contract ProofManagerV1Harness is ProofManagerV1 {
@@ -23,50 +24,22 @@ contract ProofManagerV1Harness is ProofManagerV1 {
 }
 
 /// @dev Mock USDC contract implementation.
-contract MockUsdc is IERC20 {
-    mapping(address => uint256) public balanceOf;
-    mapping(address => mapping(address => uint256)) public allowances;
-    string public constant name = "Mock USDC";
-    uint8 public constant decimals = 6;
+contract MockUsdc is ERC20 {
+    uint8 private _decimals;
 
-    /*////////////////////////
-            Used
-    ////////////////////////*/
+    constructor(string memory name_, string memory symbol_, uint8 decimals_)
+        ERC20(name_, symbol_)
+    {
+        _decimals = decimals_;
+    }
 
-    function transfer(address to, uint256 amt) external returns (bool) {
-        balanceOf[msg.sender] -= amt;
-        balanceOf[to] += amt;
+    function mint(address _to, uint256 _amount) public returns (bool) {
+        _mint(_to, _amount);
         return true;
     }
 
-    function mint(address to, uint256 amt) external {
-        balanceOf[to] += amt;
-    }
-
-    function approve(address spender, uint256 amt) external returns (bool) {
-        allowances[msg.sender][spender] = amt;
-        return true;
-    }
-
-    function transferFrom(address from, address to, uint256 amt) external returns (bool) {
-        allowances[from][msg.sender] -= amt;
-        balanceOf[from] -= amt;
-        balanceOf[to] += amt;
-
-        return true;
-    }
-    /*/////////////////////////////////////////
-            Implemented due to interface
-    /////////////////////////////////////////*/
-
-    /// @dev Not used, but required by interface.
-    function allowance(address, address) external pure returns (uint256) {
-        return 0;
-    }
-
-    /// @dev Not used, but required by interface.
-    function totalSupply() external pure returns (uint256) {
-        return 0;
+    function decimals() public view override returns (uint8) {
+        return _decimals;
     }
 }
 

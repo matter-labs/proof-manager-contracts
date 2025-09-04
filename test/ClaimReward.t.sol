@@ -14,8 +14,6 @@ import {
 
 import { INativeTokenVault } from
     "era-contracts/l1-contracts/contracts/bridge/ntv/INativeTokenVault.sol";
-import { SharedL2ContractDeployer } from
-    "era-contracts/l1-contracts/test/foundry/l1/integration/l2-tests-in-l1-context/_SharedL2ContractDeployer.sol";
 
 /// @dev Test contract for the ProofManagerV1 contract.
 contract ProofManagerV1Test is Test {
@@ -27,8 +25,7 @@ contract ProofManagerV1Test is Test {
 
     /// @dev ProofManager, but with a few functions that override invariants.
     ProofManagerV1Harness proofManager;
-    MockUsdc usdc = new MockUsdc();
-    SharedL2ContractDeployer sharedL2ContractDeployer = new SharedL2ContractDeployer();
+    MockUsdc usdc;
 
     address owner = makeAddr("owner");
     address fermah = makeAddr("fermah");
@@ -38,9 +35,9 @@ contract ProofManagerV1Test is Test {
 
     function setUp() public virtual {
         proofManager = new ProofManagerV1Harness();
+        usdc = new MockUsdc("Mock USDC", "USDC", 6);
         proofManager.initialize(fermah, lagrange, address(usdc), owner);
         usdc.mint(address(proofManager), 1_000e6);
-        INativeTokenVault(L2_NATIVE_TOKEN_VAULT_ADDR).registerToken(address(usdc));
     }
 
     /// @dev Default Proof Request Params for testing.
@@ -57,6 +54,24 @@ contract ProofManagerV1Test is Test {
             timeoutAfter: 3600,
             maxReward: 4e6
         });
+    }
+
+    function testAssetRouter() public {
+        vm.prank(address(proofManager));
+        usdc.approve(L2_NATIVE_TOKEN_VAULT_ADDR, 100);
+
+        // Basically we want all L2->L1 transactions to pass
+        vm.mockCall(
+            address(L2_TO_L1_MESSENGER_SYSTEM_CONTRACT_ADDR),
+            abi.encodeWithSignature("sendToL1(bytes)"),
+            abi.encode(bytes32(uint256(1)))
+        );
+
+        bytes32 assetId = DataEncoding.encodeNTVAssetId(block.chainid, address(usdc));
+
+        IL2AssetRouter(L2_ASSET_ROUTER_ADDR).withdraw(
+            assetId, DataEncoding.encodeBridgeBurnData(100, address(1), address(usdc))
+        );
     }
 
     /// @dev Happy path for claim reward, typical expected usage.
@@ -117,19 +132,18 @@ contract ProofManagerV1Test is Test {
             proofManager.provingNetworkInfo(IProofManager.ProvingNetwork.Fermah);
         assertEq(info.owedReward, 125e6);
 
-        vm.expectEmit(true, true, false, true);
-        emit IProofManager.RewardClaimed(IProofManager.ProvingNetwork.Fermah, 125e6);
+        // here we want to emulate process of withdrawing USDC from L2 to L1
+        vm.prank(address(proofManager));
+        usdc.approve(L2_NATIVE_TOKEN_VAULT_ADDR, 250e6);
 
         vm.prank(fermah);
-
-        // here we want to emulate process of withdrawing USDC from L2 to L1
         vm.mockCall(
             address(L2_TO_L1_MESSENGER_SYSTEM_CONTRACT_ADDR),
             abi.encodeWithSignature("sendToL1(bytes)"),
             abi.encode(bytes32(uint256(1)))
         );
-        usdc.approve(L2_NATIVE_TOKEN_VAULT_ADDR, 125e6);
-
+        vm.expectEmit(true, true, false, true);
+        emit IProofManager.RewardClaimed(IProofManager.ProvingNetwork.Fermah, 125e6);
         proofManager.claimReward();
 
         info = proofManager.provingNetworkInfo(IProofManager.ProvingNetwork.Fermah);

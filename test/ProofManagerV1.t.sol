@@ -17,7 +17,7 @@ contract ProofManagerV1Test is Test {
 
     /// @dev ProofManager, but with a few functions that override invariants.
     ProofManagerV1Harness proofManager;
-    MockUsdc usdc = new MockUsdc();
+    MockUsdc usdc;
 
     address owner = makeAddr("owner");
     address fermah = makeAddr("fermah");
@@ -27,6 +27,7 @@ contract ProofManagerV1Test is Test {
 
     function setUp() public virtual {
         proofManager = new ProofManagerV1Harness();
+        usdc = new MockUsdc("Mock USDC", "USDC", 6);
         proofManager.initialize(fermah, lagrange, address(usdc), owner);
         usdc.mint(address(proofManager), 1_000e6);
     }
