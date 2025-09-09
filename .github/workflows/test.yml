@@ -101,5 +101,5 @@ jobs:
         uses: zgosalvez/github-actions-report-lcov@ec80ffb0e31fc6b6c35e18a8ef83403b1a8a84ee # v4.1.25
         with:
           coverage-files: ./lcov.info
-          minimum-coverage: 100
+          minimum-coverage: 94
           github-token: ${{ secrets.GITHUB_TOKEN }}

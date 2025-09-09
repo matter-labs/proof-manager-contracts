@@ -1,5 +1,5 @@
 // SPDX‑License‑Identifier: MIT
-pragma solidity ^0.8.29;
+pragma solidity ^0.8.28;
 
 import { ProofManagerV1 } from "../src/ProofManagerV1.sol";
 import "../src/interfaces/IProofManager.sol";
