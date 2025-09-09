@@ -74,12 +74,12 @@ jobs:
 
       - name: Run Forge tests & coverage
         run: |
-          forge coverage --no-match-path "test/ClaimReward.t.sol"
+          forge coverage
         id: test-and-coverage
 
       - name: Run Forge coverage
         run: |
-          forge coverage --report lcov --no-match-path "test/ClaimReward.t.sol"
+          forge coverage --report lcov
         id: coverage
 
       - name: Filter directories from coverage
