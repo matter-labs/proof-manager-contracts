@@ -770,6 +770,47 @@ contract ProofManagerV1Test is Test {
         );
     }
 
+     /*//////////////////////////////////////////
+                4.III. Claim Reward
+    //////////////////////////////////////////*/
+
+    /// @dev Reverts if there's nothing to pay.
+    function testClaimRewardRevertsWhenNothingToPay() public {
+        vm.prank(fermah);
+        vm.expectRevert(abi.encodeWithSelector(IProofManager.NoPaymentDue.selector));
+        proofManager.claimReward();
+    }
+
+    /// @dev Reverts if there are not enough funds.
+    function testClaimRewardRevertsIfNotEnoughFunds() public {
+        vm.prank(owner);
+        proofManager.submitProofRequest(
+            IProofManager.ProofRequestIdentifier(1, 1),
+            IProofManager.ProofRequestParams({
+                proofInputsUrl: "https://console.google.com/buckets/...",
+                protocolMajor: 0,
+                protocolMinor: 27,
+                protocolPatch: 0,
+                timeoutAfter: 3600,
+                maxReward: 1_005e6
+            })
+        );
+        vm.prank(fermah);
+        proofManager.acknowledgeProofRequest(IProofManager.ProofRequestIdentifier(1, 1), true);
+        vm.prank(fermah);
+        proofManager.submitProof(
+            IProofManager.ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 1_001e6
+        );
+        vm.prank(owner);
+        proofManager.submitProofValidationResult(IProofManager.ProofRequestIdentifier(1, 1), true);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IProofManager.NotEnoughUsdcFunds.selector, 1_000e6, 1_001e6)
+        );
+        vm.prank(fermah);
+        proofManager.claimReward();
+    }
+
     /*//////////////////////////////////////////
                     5. Getters
     //////////////////////////////////////////*/
