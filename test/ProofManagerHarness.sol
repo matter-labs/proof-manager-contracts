@@ -4,7 +4,6 @@ pragma solidity ^0.8.28;
 import { ProofManagerV1 } from "../src/ProofManagerV1.sol";
 import "../src/interfaces/IProofManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /// @dev Test‑only wrapper that bypasses internal checks for ease of testing.
 contract ProofManagerV1Harness is ProofManagerV1 {
@@ -24,22 +23,47 @@ contract ProofManagerV1Harness is ProofManagerV1 {
 }
 
 /// @dev Mock USDC contract implementation.
-contract MockUsdc is ERC20 {
-    uint8 private _decimals;
+contract MockUsdc is IERC20 {
+    mapping(address => uint256) public balanceOf;
+    string public constant name = "Mock USDC";
+    uint8 public constant decimals = 6;
 
-    constructor(string memory name_, string memory symbol_, uint8 decimals_)
-        ERC20(name_, symbol_)
-    {
-        _decimals = decimals_;
-    }
+    /*////////////////////////
+            Used
+    ////////////////////////*/
 
-    function mint(address _to, uint256 _amount) public returns (bool) {
-        _mint(_to, _amount);
+    function transfer(address to, uint256 amt) external returns (bool) {
+        balanceOf[msg.sender] -= amt;
+        balanceOf[to] += amt;
         return true;
     }
 
-    function decimals() public view override returns (uint8) {
-        return _decimals;
+    function mint(address to, uint256 amt) external {
+        balanceOf[to] += amt;
+    }
+
+    /*/////////////////////////////////////////
+            Implemented due to interface
+    /////////////////////////////////////////*/
+
+    /// @dev Not used, but required by interface.
+    function transferFrom(address, address, uint256) external pure returns (bool) {
+        return true;
+    }
+
+    /// @dev Not used, but required by interface.
+    function allowance(address, address) external pure returns (uint256) {
+        return 0;
+    }
+
+    /// @dev Not used, but required by interface.
+    function approve(address, uint256) external pure returns (bool) {
+        return true;
+    }
+
+    /// @dev Not used, but required by interface.
+    function totalSupply() external pure returns (uint256) {
+        return 0;
     }
 }
 
