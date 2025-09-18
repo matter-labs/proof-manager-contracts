@@ -10,7 +10,8 @@ echo "STARTING BRIDGE TOKEN TO $CHAIN_NAME"
 export NTV_ADDRESS=$NTV_ADDRESS
 export BH_ADDRESS=$BH_ADDRESS
 export SHARED_BRIDGE_L1_ADDRESS=$SHARED_BRIDGE_L1_ADDRESS
-export RPC_URL=$RPC_URL
+export L1_RPC_URL=$L1_RPC_URL # RPC URL of L1
+export L2_RPC_URL=$L2_RPC_URL # RPC URL of L2
 export L1_CHAIN_ID=$(cast chain-id)
 export PRIVATE_KEY=$PRIVATE_KEY
 export SENDER=$SENDER
@@ -44,6 +45,7 @@ cast send --from $SENDER \
   --private-key $PRIVATE_KEY \
   "$TOKEN_ADDRESS" \
   "approve(address,uint256)" "$NTV_ADDRESS" $AMOUNT \
+  --rpc-url $RPC_URL \
   --gas-price $GAS_PRICE
 
 # === Send message through bridge ===
@@ -56,3 +58,7 @@ cast send --from $SENDER \
   --value 10000000000000000000000000000000 \
   --rpc-url $RPC_URL \
   --gas-price 100000
+
+L2_TOKEN_ADDRESS=$(cast call 0x0000000000000000000000000000000000010004  "tokenAddress(bytes32)(address)" $TOKEN_ASSET_ID  --rpc-url $L2_RPC_URL)
+
+echo "Token address on L2: $L2_TOKEN_ADDRESS"
