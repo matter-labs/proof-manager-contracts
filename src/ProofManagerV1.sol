@@ -4,15 +4,19 @@ pragma solidity ^0.8.28;
 import "./store/ProofManagerStorage.sol";
 import "./interfaces/IProofManager.sol";
 
-import { AccessControlUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import {
+    AccessControlUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { DataEncoding } from
-    "era-contracts/l1-contracts/contracts/common/libraries/DataEncoding.sol";
-import { INativeTokenVault } from
-    "era-contracts/l1-contracts/contracts/bridge/ntv/INativeTokenVault.sol";
-import { IL2AssetRouter } from
-    "era-contracts/l1-contracts/contracts/bridge/asset-router/IL2AssetRouter.sol";
+import {
+    DataEncoding
+} from "era-contracts/l1-contracts/contracts/common/libraries/DataEncoding.sol";
+import {
+    INativeTokenVault
+} from "era-contracts/l1-contracts/contracts/bridge/ntv/INativeTokenVault.sol";
+import {
+    IL2AssetRouter
+} from "era-contracts/l1-contracts/contracts/bridge/asset-router/IL2AssetRouter.sol";
 import {
     L2_NATIVE_TOKEN_VAULT_ADDR,
     L2_ASSET_ROUTER_ADDR
@@ -308,9 +312,8 @@ contract ProofManagerV1 is
 
         bytes32 assetId = INativeTokenVault(L2_NATIVE_TOKEN_VAULT_ADDR).assetId(address(usdc));
 
-        IL2AssetRouter(L2_ASSET_ROUTER_ADDR).withdraw(
-            assetId, DataEncoding.encodeBridgeBurnData(toPay, info.addr, address(usdc))
-        );
+        IL2AssetRouter(L2_ASSET_ROUTER_ADDR)
+            .withdraw(assetId, DataEncoding.encodeBridgeBurnData(toPay, info.addr, address(usdc)));
 
         emit RewardClaimed(provingNetwork, toPay);
     }

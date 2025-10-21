@@ -7,8 +7,9 @@ import "../src/ProofManagerV1.sol";
 import "../src/interfaces/IProofManager.sol";
 import "./ProofManagerHarness.sol";
 import { ProxyAdmin } from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
-import { TransparentUpgradeableProxy } from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 /// @dev Test contract for the ProofManagerV1 contract.
 contract ProofManagerV1Test is Test {
@@ -60,17 +61,13 @@ contract ProofManagerV1Test is Test {
         assertProvingNetworkInfo(
             IProofManager.ProvingNetwork.Fermah,
             IProofManager.ProvingNetworkInfo({
-                addr: fermah,
-                status: IProofManager.ProvingNetworkStatus.Active,
-                owedReward: 0
+                addr: fermah, status: IProofManager.ProvingNetworkStatus.Active, owedReward: 0
             })
         );
         assertProvingNetworkInfo(
             IProofManager.ProvingNetwork.Lagrange,
             IProofManager.ProvingNetworkInfo({
-                addr: lagrange,
-                status: IProofManager.ProvingNetworkStatus.Active,
-                owedReward: 0
+                addr: lagrange, status: IProofManager.ProvingNetworkStatus.Active, owedReward: 0
             })
         );
 
@@ -244,9 +241,7 @@ contract ProofManagerV1Test is Test {
         assertProvingNetworkInfo(
             IProofManager.ProvingNetwork.Fermah,
             IProofManager.ProvingNetworkInfo({
-                addr: fermah,
-                status: IProofManager.ProvingNetworkStatus.Inactive,
-                owedReward: 0
+                addr: fermah, status: IProofManager.ProvingNetworkStatus.Inactive, owedReward: 0
             })
         );
     }
@@ -577,17 +572,13 @@ contract ProofManagerV1Test is Test {
         assertProvingNetworkInfo(
             IProofManager.ProvingNetwork.Fermah,
             IProofManager.ProvingNetworkInfo({
-                addr: fermah,
-                status: IProofManager.ProvingNetworkStatus.Active,
-                owedReward: 6e6
+                addr: fermah, status: IProofManager.ProvingNetworkStatus.Active, owedReward: 6e6
             })
         );
         assertProvingNetworkInfo(
             IProofManager.ProvingNetwork.Lagrange,
             IProofManager.ProvingNetworkInfo({
-                addr: lagrange,
-                status: IProofManager.ProvingNetworkStatus.Active,
-                owedReward: 8e6
+                addr: lagrange, status: IProofManager.ProvingNetworkStatus.Active, owedReward: 8e6
             })
         );
     }
