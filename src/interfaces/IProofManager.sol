@@ -159,6 +159,8 @@ interface IProofManager {
 
     error InvalidProofRequestTimeout();
 
+    error MaxRewardOutOfBounds();
+
     error NoPaymentDue();
 
     /// @param balance the balance of USDC currently available in the contract

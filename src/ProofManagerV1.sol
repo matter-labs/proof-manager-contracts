@@ -43,6 +43,9 @@ contract ProofManagerV1 is
     ///     Minimizes the proving downtime in case of communication failure.
     uint256 private constant ACK_TIMEOUT = 2 minutes;
 
+    /// @dev Hard-coded constant on maximum reward amount.
+    uint256 private constant MAX_REWARD = 50_000e6; // 50,000 USDC
+
     /*//////////////////////////////////////////
                     Modifiers
     //////////////////////////////////////////*/
@@ -178,8 +181,11 @@ contract ProofManagerV1 is
         if (_proofRequests[id.chainId][id.blockNumber].submittedAt != 0) {
             revert DuplicatedProofRequest(id.chainId, id.blockNumber);
         }
-        if (params.timeoutAfter == 0 || params.timeoutAfter < ACK_TIMEOUT) {
+        if (params.timeoutAfter <= ACK_TIMEOUT) {
             revert InvalidProofRequestTimeout();
+        }
+        if (params.maxReward == 0 || params.maxReward > MAX_REWARD) {
+            revert MaxRewardOutOfBounds();
         }
 
         ProvingNetwork assignedTo = _nextAssignee();
