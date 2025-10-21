@@ -468,6 +468,17 @@ contract ProofManagerV1Test is Test {
         vm.stopPrank();
     }
 
+    function testProofShouldBeNotEmpty() public {
+        submitDefaultProofRequest(1, 1);
+
+        vm.prank(fermah);
+        proofManager.acknowledgeProofRequest(IProofManager.ProofRequestIdentifier(1, 1), true);
+
+        vm.prank(fermah);
+        vm.expectRevert(abi.encodeWithSelector(IProofManager.EmptyProof.selector));
+        proofManager.submitProof(IProofManager.ProofRequestIdentifier(1, 1), bytes(""), 1e6);
+    }
+
     /*//////////////////////////////////////////
         3.II Submit Proof Validation Result
     //////////////////////////////////////////*/
