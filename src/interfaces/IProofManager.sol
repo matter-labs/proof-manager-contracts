@@ -184,6 +184,8 @@ interface IProofManager {
 
     error ProofRequestProvingDeadlinePassed();
 
+    error EmptyProof();
+
     error ProvingNetworkCannotBeNone();
 
     error UsdcTransferFailed();
@@ -210,13 +212,13 @@ interface IProofManager {
     //////////////////////////////////////////*/
 
     /// @dev Submits a proof request. The proof is assigned to the next proving network in round robin.
-    ///     Can be called only by the owner.
+    ///     Can be called only by the submitter.
     function submitProofRequest(
         ProofRequestIdentifier calldata id,
         ProofRequestParams calldata params
     ) external;
 
-    /// @dev Submits the result of proof validation on settlement layer. Can be called only by the owner.
+    /// @dev Submits the result of proof validation on settlement layer. Can be called only by the submitter.
     ///     NOTE: Valid proofs are due for payment (Proving Network needs to call `claimReward()`), whilst invalid proofs are not (and Proving Network is penalized in monthly Preferred Proving Network assignment).
     function submitProofValidationResult(ProofRequestIdentifier calldata id, bool isProofValid)
         external;

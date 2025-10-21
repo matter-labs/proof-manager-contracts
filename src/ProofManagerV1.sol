@@ -4,8 +4,8 @@ pragma solidity ^0.8.28;
 import "./store/ProofManagerStorage.sol";
 import "./interfaces/IProofManager.sol";
 
-import { OwnableUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { AccessControlUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { DataEncoding } from
     "era-contracts/l1-contracts/contracts/common/libraries/DataEncoding.sol";
@@ -19,8 +19,17 @@ import {
 } from "era-contracts/l1-contracts/contracts/common/L2ContractAddresses.sol";
 
 /// @author Matter Labs
+/// @custom:security-contact security@matterlabs.dev
 /// @notice Entry point for Proof Manager.
-contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, ProofManagerStorage {
+contract ProofManagerV1 is
+    IProofManager,
+    Initializable,
+    AccessControlUpgradeable,
+    ProofManagerStorage
+{
+    bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
+    bytes32 public constant SUBMITTER_ROLE = keccak256("SUBMITTER_ROLE");
+
     /*//////////////////////////////////////////
                     Constants
     //////////////////////////////////////////*/
@@ -59,19 +68,26 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
         _;
     }
 
+    constructor() {
+        _disableInitializers();
+    }
+
     // /*//////////////////////////////////////////
     //                 Initialization
     // //////////////////////////////////////////*/
 
-    function initialize(address fermah, address lagrange, address _usdc, address _owner)
+    function initialize(address fermah, address lagrange, address _usdc, address _submitter)
         external
         initializer
     {
-        if (_owner == address(0)) revert AddressCannotBeZero("owner");
-        __Ownable_init(_owner);
+        if (_submitter == address(0)) revert AddressCannotBeZero("submitter");
         if (fermah == address(0)) revert AddressCannotBeZero("fermah");
         if (lagrange == address(0)) revert AddressCannotBeZero("lagrange");
         if (_usdc == address(0)) revert AddressCannotBeZero("usdc");
+
+        __AccessControl_init();
+        _grantRole(OWNER_ROLE, msg.sender);
+        _grantRole(SUBMITTER_ROLE, _submitter);
 
         usdc = IERC20(_usdc);
 
@@ -121,7 +137,7 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
     /// @inheritdoc IProofManager
     function updateProvingNetworkAddress(ProvingNetwork provingNetwork, address addr)
         external
-        onlyOwner
+        onlyRole(OWNER_ROLE)
         provingNetworkNotNone(provingNetwork)
     {
         if (addr == address(0)) revert AddressCannotBeZero("proving network");
@@ -131,7 +147,7 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
     /// @inheritdoc IProofManager
     function updateProvingNetworkStatus(ProvingNetwork provingNetwork, ProvingNetworkStatus status)
         external
-        onlyOwner
+        onlyRole(OWNER_ROLE)
         provingNetworkNotNone(provingNetwork)
     {
         _provingNetworks[provingNetwork].status = status;
@@ -139,7 +155,10 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
     }
 
     /// @inheritdoc IProofManager
-    function updatePreferredProvingNetwork(ProvingNetwork provingNetwork) external onlyOwner {
+    function updatePreferredProvingNetwork(ProvingNetwork provingNetwork)
+        external
+        onlyRole(OWNER_ROLE)
+    {
         _updatePreferredProvingNetwork(provingNetwork);
     }
 
@@ -151,11 +170,13 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
     function submitProofRequest(
         ProofRequestIdentifier calldata id,
         ProofRequestParams calldata params
-    ) external onlyOwner {
+    ) external onlyRole(SUBMITTER_ROLE) {
         if (_proofRequests[id.chainId][id.blockNumber].submittedAt != 0) {
             revert DuplicatedProofRequest(id.chainId, id.blockNumber);
         }
-        if (params.timeoutAfter == 0) revert InvalidProofRequestTimeout();
+        if (params.timeoutAfter == 0 || params.timeoutAfter < ACK_TIMEOUT) {
+            revert InvalidProofRequestTimeout();
+        }
 
         ProvingNetwork assignedTo = _nextAssignee();
         bool refused = (assignedTo == ProvingNetwork.None)
@@ -199,7 +220,7 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
     /// @inheritdoc IProofManager
     function submitProofValidationResult(ProofRequestIdentifier calldata id, bool isProofValid)
         external
-        onlyOwner
+        onlyRole(SUBMITTER_ROLE)
     {
         ProofRequest storage _proofRequest = _proofRequests[id.chainId][id.blockNumber];
         if (_proofRequest.status != ProofRequestStatus.Proven) {
@@ -231,8 +252,6 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
         // NOTE: Checking if the proof request exists is not necessary. By default, a proof request that doesn't exist is assigned to ProvingNetwork None.
         //      As such, onlyAssignee(id) will fail.
         ProofRequest storage _proofRequest = _proofRequests[id.chainId][id.blockNumber];
-        ProofRequestStatus status =
-            accepted ? ProofRequestStatus.Committed : ProofRequestStatus.Refused;
 
         if (_proofRequest.status != ProofRequestStatus.PendingAcknowledgement) {
             revert ProofRequestIsNotPendingAcknowledgement(_proofRequest.status);
@@ -241,7 +260,7 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
             revert ProofRequestAcknowledgementDeadlinePassed();
         }
 
-        _proofRequest.status = status;
+        _proofRequest.status = accepted ? ProofRequestStatus.Committed : ProofRequestStatus.Refused;
 
         emit ProofRequestAcknowledged(
             id.chainId, id.blockNumber, accepted, _proofRequest.assignedTo
@@ -261,6 +280,7 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
         if (block.timestamp > _proofRequest.submittedAt + _proofRequest.timeoutAfter) {
             revert ProofRequestProvingDeadlinePassed();
         }
+        if (proof.length == 0) revert EmptyProof();
 
         _proofRequest.status = ProofRequestStatus.Proven;
         _proofRequest.proof = proof;
@@ -308,7 +328,7 @@ contract ProofManagerV1 is IProofManager, Initializable, OwnableUpgradeable, Pro
     }
 
     /// @dev Computes the next assignee based on current state. Does not change state!
-    ///    NOTE: Assigment is 25%, 25% and 50%.
+    ///    NOTE: Distribution is 25%, 25% and 50%.
     function _nextAssignee() private view returns (ProvingNetwork to) {
         uint256 mod = _requestCounter % 4;
         if (mod == 0) return ProvingNetwork.Fermah;
