@@ -46,7 +46,7 @@ contract ProofManagerV1Test is Test {
 
         proofManager.initialize(fermah, lagrange, address(usdc), submitter);
 
-        usdc.mint(address(proofManager), 1_000e6);
+        usdc.mint(address(proofManager), 1_000_000);
     }
 
     /*//////////////////////////////////////////
@@ -358,7 +358,7 @@ contract ProofManagerV1Test is Test {
     }
 
     /// @dev No proof can be generated in 0 seconds.
-    function testCannotSubmitProofWithZeroTimeout() public {
+    function testCannotSubmitProofRequestWithZeroTimeout() public {
         vm.expectRevert(
             abi.encodeWithSelector(IProofManager.InvalidProofRequestTimeout.selector, 0)
         );
@@ -372,6 +372,37 @@ contract ProofManagerV1Test is Test {
                 protocolPatch: 0,
                 timeoutAfter: 0,
                 maxReward: 4e6
+            })
+        );
+    }
+
+    /// @dev Cannot submit proof request with max reward out of bounds(0, 5_000_000)
+    function testCannotSubmitProofRequestWithMaxRewardOutOfBounds() public {
+        vm.expectRevert(abi.encodeWithSelector(IProofManager.MaxRewardOutOfBounds.selector));
+        vm.prank(submitter);
+        proofManager.submitProofRequest(
+            IProofManager.ProofRequestIdentifier(1, 1),
+            IProofManager.ProofRequestParams({
+                proofInputsUrl: "https://console.google.com/buckets/...",
+                protocolMajor: 0,
+                protocolMinor: 27,
+                protocolPatch: 0,
+                timeoutAfter: 3600,
+                maxReward: 5_000_001
+            })
+        );
+
+        vm.expectRevert(abi.encodeWithSelector(IProofManager.MaxRewardOutOfBounds.selector));
+        vm.prank(submitter);
+        proofManager.submitProofRequest(
+            IProofManager.ProofRequestIdentifier(1, 1),
+            IProofManager.ProofRequestParams({
+                proofInputsUrl: "https://console.google.com/buckets/...",
+                protocolMajor: 0,
+                protocolMinor: 27,
+                protocolPatch: 0,
+                timeoutAfter: 3600,
+                maxReward: 0
             })
         );
     }
@@ -468,6 +499,7 @@ contract ProofManagerV1Test is Test {
         vm.stopPrank();
     }
 
+    /// @dev Proof should not be empty.
     function testProofShouldBeNotEmpty() public {
         submitDefaultProofRequest(1, 1);
 
@@ -542,7 +574,7 @@ contract ProofManagerV1Test is Test {
     /// @dev Submitting proof validation result marks requests due for reward.
     function testUpdateProofRequestStatusAsValidatedForPayment() public {
         for (uint256 i = 0; i < 8; ++i) {
-            uint256 reward = (i + 1) * 1e6;
+            uint256 reward = (i + 1) * 1e5;
             vm.prank(submitter);
             proofManager.submitProofRequest(
                 IProofManager.ProofRequestIdentifier(1, i),
@@ -583,13 +615,13 @@ contract ProofManagerV1Test is Test {
         assertProvingNetworkInfo(
             IProofManager.ProvingNetwork.Fermah,
             IProofManager.ProvingNetworkInfo({
-                addr: fermah, status: IProofManager.ProvingNetworkStatus.Active, owedReward: 6e6
+                addr: fermah, status: IProofManager.ProvingNetworkStatus.Active, owedReward: 6e5
             })
         );
         assertProvingNetworkInfo(
             IProofManager.ProvingNetwork.Lagrange,
             IProofManager.ProvingNetworkInfo({
-                addr: lagrange, status: IProofManager.ProvingNetworkStatus.Active, owedReward: 8e6
+                addr: lagrange, status: IProofManager.ProvingNetworkStatus.Active, owedReward: 8e5
             })
         );
     }
@@ -849,20 +881,20 @@ contract ProofManagerV1Test is Test {
                 protocolMinor: 27,
                 protocolPatch: 0,
                 timeoutAfter: 3600,
-                maxReward: 1_005e6
+                maxReward: 5_000_000
             })
         );
         vm.prank(fermah);
         proofManager.acknowledgeProofRequest(IProofManager.ProofRequestIdentifier(1, 1), true);
         vm.prank(fermah);
         proofManager.submitProof(
-            IProofManager.ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 1_001e6
+            IProofManager.ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 1_000_001
         );
         vm.prank(submitter);
         proofManager.submitProofValidationResult(IProofManager.ProofRequestIdentifier(1, 1), true);
 
         vm.expectRevert(
-            abi.encodeWithSelector(IProofManager.NotEnoughUsdcFunds.selector, 1_000e6, 1_001e6)
+            abi.encodeWithSelector(IProofManager.NotEnoughUsdcFunds.selector, 1_000_000, 1_000_001)
         );
         vm.prank(fermah);
         proofManager.claimReward();
