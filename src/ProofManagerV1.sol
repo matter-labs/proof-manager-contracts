@@ -44,7 +44,7 @@ contract ProofManagerV1 is
     uint256 private constant ACK_TIMEOUT = 2 minutes;
 
     /// @dev Hard-coded constant on maximum reward amount.
-    ///      Constant limitates maximum reward that can be provided for a single proof request.
+    ///      Constant limits maximum reward that can be provided for a single proof request.
     ///      Safe capacity for the reward is 5 USDC per proof, although the actual value is lower.
     uint256 private constant MAX_REWARD = 5_000_000;
 
