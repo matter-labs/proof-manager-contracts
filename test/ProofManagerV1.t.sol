@@ -6,6 +6,10 @@ import "../src/store/ProofManagerStorage.sol";
 import "../src/ProofManagerV1.sol";
 import "../src/interfaces/IProofManager.sol";
 import "./ProofManagerHarness.sol";
+import { ProxyAdmin } from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 /// @dev Test contract for the ProofManagerV1 contract.
 contract ProofManagerV1Test is Test {
@@ -20,15 +24,29 @@ contract ProofManagerV1Test is Test {
     MockUsdc usdc = new MockUsdc();
 
     address owner = makeAddr("owner");
+    address submitter = makeAddr("submitter");
     address fermah = makeAddr("fermah");
     address lagrange = makeAddr("lagrange");
-    address nonOwner = makeAddr("nonOwner");
+    address externalAddr = makeAddr("externalAddr");
     address otherProvingNetwork = makeAddr("otherProvingNetwork");
 
+    bytes32 owner_role = keccak256("OWNER_ROLE");
+    bytes32 submitter_role = keccak256("SUBMITTER_ROLE");
+
     function setUp() public virtual {
-        proofManager = new ProofManagerV1Harness();
-        proofManager.initialize(fermah, lagrange, address(usdc), owner);
-        usdc.mint(address(proofManager), 1_000e6);
+        ProofManagerV1Harness impl = new ProofManagerV1Harness();
+
+        ProxyAdmin admin = new ProxyAdmin(owner);
+
+        TransparentUpgradeableProxy proxy =
+            new TransparentUpgradeableProxy(address(impl), address(admin), "");
+
+        proofManager = ProofManagerV1Harness(address(proxy));
+        vm.prank(owner);
+
+        proofManager.initialize(fermah, lagrange, address(usdc), submitter);
+
+        usdc.mint(address(proofManager), 1_000_000);
     }
 
     /*//////////////////////////////////////////
@@ -37,22 +55,19 @@ contract ProofManagerV1Test is Test {
 
     /// @dev Happy path for initialization.
     function testInit() public view {
-        assertEq(proofManager.owner(), owner, "invalid owner");
+        assertEq(proofManager.hasRole(owner_role, owner), true, "invalid owner");
+        assertEq(proofManager.hasRole(submitter_role, submitter), true, "invalid submitter");
 
         assertProvingNetworkInfo(
             IProofManager.ProvingNetwork.Fermah,
             IProofManager.ProvingNetworkInfo({
-                addr: fermah,
-                status: IProofManager.ProvingNetworkStatus.Active,
-                owedReward: 0
+                addr: fermah, status: IProofManager.ProvingNetworkStatus.Active, owedReward: 0
             })
         );
         assertProvingNetworkInfo(
             IProofManager.ProvingNetwork.Lagrange,
             IProofManager.ProvingNetworkInfo({
-                addr: lagrange,
-                status: IProofManager.ProvingNetworkStatus.Active,
-                owedReward: 0
+                addr: lagrange, status: IProofManager.ProvingNetworkStatus.Active, owedReward: 0
             })
         );
 
@@ -82,39 +97,76 @@ contract ProofManagerV1Test is Test {
 
         vm.expectEmit(true, false, false, false);
         emit IProofManager.PreferredProvingNetworkUpdated(IProofManager.ProvingNetwork.None);
-        ProofManagerV1 _proofManager = new ProofManagerV1();
-        _proofManager.initialize(fermah, lagrange, address(this), owner);
+
+        ProofManagerV1 impl = new ProofManagerV1();
+        ProxyAdmin admin = new ProxyAdmin(owner);
+
+        TransparentUpgradeableProxy proxy =
+            new TransparentUpgradeableProxy(address(impl), address(admin), "");
+
+        ProofManagerV1 _proofManager = ProofManagerV1(address(proxy));
+        vm.prank(owner);
+
+        _proofManager.initialize(fermah, lagrange, address(this), submitter);
     }
 
-    /// @dev Do not allow zero address for owner.
-    function testInitFailsWithZeroOwnerAddress() public {
-        ProofManagerV1 _proofManager = new ProofManagerV1();
-        vm.expectRevert(abi.encodeWithSelector(IProofManager.AddressCannotBeZero.selector, "owner"));
+    /// @dev Do not allow zero address for submitter.
+    function testInitFailsWithZeroSubmitterAddress() public {
+        ProofManagerV1 impl = new ProofManagerV1();
+        ProxyAdmin admin = new ProxyAdmin(owner);
 
-        _proofManager.initialize(fermah, lagrange, address(this), address(0));
+        TransparentUpgradeableProxy proxy =
+            new TransparentUpgradeableProxy(address(impl), address(admin), "");
+
+        ProofManagerV1 _proofManager = ProofManagerV1(address(proxy));
+        vm.prank(owner);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IProofManager.AddressCannotBeZero.selector, "submitter")
+        );
+
+        _proofManager.initialize(fermah, lagrange, address(usdc), address(0));
     }
 
     /// @dev Do not allow zero address for proving networks.
     function testInitFailsWithZeroProvingNetworkAddress() public {
-        ProofManagerV1 _proofManager = new ProofManagerV1();
+        ProofManagerV1 impl = new ProofManagerV1();
+        ProxyAdmin admin = new ProxyAdmin(owner);
+
+        TransparentUpgradeableProxy proxy =
+            new TransparentUpgradeableProxy(address(impl), address(admin), "");
+
+        ProofManagerV1 _proofManager = ProofManagerV1(address(proxy));
+
         vm.expectRevert(
             abi.encodeWithSelector(IProofManager.AddressCannotBeZero.selector, "fermah")
         );
-        _proofManager.initialize(address(0), lagrange, address(this), owner);
 
-        _proofManager = new ProofManagerV1();
+        vm.prank(owner);
+        _proofManager.initialize(address(0), lagrange, address(usdc), submitter);
+
         vm.expectRevert(
             abi.encodeWithSelector(IProofManager.AddressCannotBeZero.selector, "lagrange")
         );
-        _proofManager.initialize(fermah, address(0), address(this), owner);
+
+        vm.prank(owner);
+        _proofManager.initialize(fermah, address(0), address(usdc), submitter);
     }
 
     /// @dev Do not allow zero address for USDC contract.
     function testInitFailsWithZeroUSDCAddress() public {
-        ProofManagerV1 _proofManager = new ProofManagerV1();
+        ProofManagerV1 impl = new ProofManagerV1();
+        ProxyAdmin admin = new ProxyAdmin(owner);
+
+        TransparentUpgradeableProxy proxy =
+            new TransparentUpgradeableProxy(address(impl), address(admin), "");
+
+        ProofManagerV1 _proofManager = ProofManagerV1(address(proxy));
+        vm.prank(owner);
+
         vm.expectRevert(abi.encodeWithSelector(IProofManager.AddressCannotBeZero.selector, "usdc"));
 
-        _proofManager.initialize(fermah, lagrange, address(0), owner);
+        _proofManager.initialize(fermah, lagrange, address(0), submitter);
     }
 
     /*//////////////////////////////////////////
@@ -147,8 +199,8 @@ contract ProofManagerV1Test is Test {
 
     /// @dev Only owner can update proving network address.
     function testNonOwnerCannotUpdateProvingNetworkAddress() public {
-        vm.prank(nonOwner);
-        expectOwnableRevert(nonOwner);
+        vm.prank(externalAddr);
+        expectAccessRevert(externalAddr, owner_role);
         proofManager.updateProvingNetworkAddress(
             IProofManager.ProvingNetwork.Fermah, otherProvingNetwork
         );
@@ -189,17 +241,15 @@ contract ProofManagerV1Test is Test {
         assertProvingNetworkInfo(
             IProofManager.ProvingNetwork.Fermah,
             IProofManager.ProvingNetworkInfo({
-                addr: fermah,
-                status: IProofManager.ProvingNetworkStatus.Inactive,
-                owedReward: 0
+                addr: fermah, status: IProofManager.ProvingNetworkStatus.Inactive, owedReward: 0
             })
         );
     }
 
     /// @dev Only owner can update a proving network's status.
     function testNonOwnerCannotUpdateProvingNetworkStatus() public {
-        vm.prank(nonOwner);
-        expectOwnableRevert(nonOwner);
+        vm.prank(externalAddr);
+        expectAccessRevert(externalAddr, owner_role);
         proofManager.updateProvingNetworkStatus(
             IProofManager.ProvingNetwork.Fermah, IProofManager.ProvingNetworkStatus.Inactive
         );
@@ -239,8 +289,8 @@ contract ProofManagerV1Test is Test {
 
     /// @dev Only owner can update the preferred proving network.
     function testNonOwnerCannotUpdatePreferredProvingNetwork() public {
-        vm.prank(nonOwner);
-        expectOwnableRevert(nonOwner);
+        vm.prank(externalAddr);
+        expectAccessRevert(externalAddr, owner_role);
         proofManager.updatePreferredProvingNetwork(IProofManager.ProvingNetwork.Fermah);
     }
 
@@ -268,7 +318,7 @@ contract ProofManagerV1Test is Test {
             0
         );
 
-        vm.prank(owner);
+        vm.prank(submitter);
         proofManager.submitProofRequest(
             IProofManager.ProofRequestIdentifier(1, 1), defaultProofRequestParams()
         );
@@ -291,10 +341,10 @@ contract ProofManagerV1Test is Test {
         );
     }
 
-    /// @dev Only owner can submit a proof request.
+    /// @dev Only submitter can submit a proof request.
     function testNonOwnerCannotSubmitProof() public {
-        expectOwnableRevert(nonOwner);
-        vm.prank(nonOwner);
+        expectAccessRevert(externalAddr, submitter_role);
+        vm.prank(externalAddr);
         proofManager.submitProofRequest(
             IProofManager.ProofRequestIdentifier(1, 1), defaultProofRequestParams()
         );
@@ -308,11 +358,11 @@ contract ProofManagerV1Test is Test {
     }
 
     /// @dev No proof can be generated in 0 seconds.
-    function testCannotSubmitProofWithZeroTimeout() public {
+    function testCannotSubmitProofRequestWithZeroTimeout() public {
         vm.expectRevert(
             abi.encodeWithSelector(IProofManager.InvalidProofRequestTimeout.selector, 0)
         );
-        vm.prank(owner);
+        vm.prank(submitter);
         proofManager.submitProofRequest(
             IProofManager.ProofRequestIdentifier(1, 1),
             IProofManager.ProofRequestParams({
@@ -322,6 +372,37 @@ contract ProofManagerV1Test is Test {
                 protocolPatch: 0,
                 timeoutAfter: 0,
                 maxReward: 4e6
+            })
+        );
+    }
+
+    /// @dev Cannot submit proof request with max reward out of bounds(0, 5_000_000)
+    function testCannotSubmitProofRequestWithMaxRewardOutOfBounds() public {
+        vm.expectRevert(abi.encodeWithSelector(IProofManager.MaxRewardOutOfBounds.selector));
+        vm.prank(submitter);
+        proofManager.submitProofRequest(
+            IProofManager.ProofRequestIdentifier(1, 1),
+            IProofManager.ProofRequestParams({
+                proofInputsUrl: "https://console.google.com/buckets/...",
+                protocolMajor: 0,
+                protocolMinor: 27,
+                protocolPatch: 0,
+                timeoutAfter: 3600,
+                maxReward: 5_000_001
+            })
+        );
+
+        vm.expectRevert(abi.encodeWithSelector(IProofManager.MaxRewardOutOfBounds.selector));
+        vm.prank(submitter);
+        proofManager.submitProofRequest(
+            IProofManager.ProofRequestIdentifier(1, 1),
+            IProofManager.ProofRequestParams({
+                proofInputsUrl: "https://console.google.com/buckets/...",
+                protocolMajor: 0,
+                protocolMinor: 27,
+                protocolPatch: 0,
+                timeoutAfter: 3600,
+                maxReward: 0
             })
         );
     }
@@ -418,6 +499,18 @@ contract ProofManagerV1Test is Test {
         vm.stopPrank();
     }
 
+    /// @dev Proof should not be empty.
+    function testProofShouldBeNotEmpty() public {
+        submitDefaultProofRequest(1, 1);
+
+        vm.prank(fermah);
+        proofManager.acknowledgeProofRequest(IProofManager.ProofRequestIdentifier(1, 1), true);
+
+        vm.prank(fermah);
+        vm.expectRevert(abi.encodeWithSelector(IProofManager.EmptyProof.selector));
+        proofManager.submitProof(IProofManager.ProofRequestIdentifier(1, 1), bytes(""), 1e6);
+    }
+
     /*//////////////////////////////////////////
         3.II Submit Proof Validation Result
     //////////////////////////////////////////*/
@@ -432,7 +525,7 @@ contract ProofManagerV1Test is Test {
 
         vm.expectEmit(true, true, false, true);
         emit IProofManager.ProofValidationResult(1, 1, true, IProofManager.ProvingNetwork.Fermah);
-        vm.prank(owner);
+        vm.prank(submitter);
         proofManager.submitProofValidationResult(IProofManager.ProofRequestIdentifier(1, 1), true);
         assertProofRequest(
             IProofManager.ProofRequestIdentifier(1, 1),
@@ -453,14 +546,14 @@ contract ProofManagerV1Test is Test {
         );
     }
 
-    /// @dev Only owner can submit proof validation result.
+    /// @dev Only submitter can submit proof validation result.
     function testNonOwnerCannotSubmitProofValidationResult() public {
         submitDefaultProofRequest(1, 1);
         proofManager.forceSetProofRequestStatus(
             IProofManager.ProofRequestIdentifier(1, 1), IProofManager.ProofRequestStatus.Proven
         );
-        vm.prank(nonOwner);
-        expectOwnableRevert(nonOwner);
+        vm.prank(externalAddr);
+        expectAccessRevert(externalAddr, submitter_role);
         proofManager.submitProofValidationResult(IProofManager.ProofRequestIdentifier(1, 1), true);
     }
 
@@ -474,15 +567,15 @@ contract ProofManagerV1Test is Test {
                 IProofManager.ProofRequestStatus.PendingAcknowledgement
             )
         );
-        vm.prank(owner);
+        vm.prank(submitter);
         proofManager.submitProofValidationResult(IProofManager.ProofRequestIdentifier(1, 1), true);
     }
 
     /// @dev Submitting proof validation result marks requests due for reward.
     function testUpdateProofRequestStatusAsValidatedForPayment() public {
         for (uint256 i = 0; i < 8; ++i) {
-            uint256 reward = (i + 1) * 1e6;
-            vm.prank(owner);
+            uint256 reward = (i + 1) * 1e5;
+            vm.prank(submitter);
             proofManager.submitProofRequest(
                 IProofManager.ProofRequestIdentifier(1, i),
                 IProofManager.ProofRequestParams({
@@ -512,7 +605,7 @@ contract ProofManagerV1Test is Test {
                 );
 
                 // mark it as validated
-                vm.prank(owner);
+                vm.prank(submitter);
                 proofManager.submitProofValidationResult(
                     IProofManager.ProofRequestIdentifier(1, i), true
                 );
@@ -522,17 +615,13 @@ contract ProofManagerV1Test is Test {
         assertProvingNetworkInfo(
             IProofManager.ProvingNetwork.Fermah,
             IProofManager.ProvingNetworkInfo({
-                addr: fermah,
-                status: IProofManager.ProvingNetworkStatus.Active,
-                owedReward: 6e6
+                addr: fermah, status: IProofManager.ProvingNetworkStatus.Active, owedReward: 6e5
             })
         );
         assertProvingNetworkInfo(
             IProofManager.ProvingNetwork.Lagrange,
             IProofManager.ProvingNetworkInfo({
-                addr: lagrange,
-                status: IProofManager.ProvingNetworkStatus.Active,
-                owedReward: 8e6
+                addr: lagrange, status: IProofManager.ProvingNetworkStatus.Active, owedReward: 8e5
             })
         );
     }
@@ -547,7 +636,7 @@ contract ProofManagerV1Test is Test {
 
         vm.expectEmit(true, true, false, true);
         emit IProofManager.ProofValidationResult(1, 1, false, IProofManager.ProvingNetwork.Fermah);
-        vm.prank(owner);
+        vm.prank(submitter);
         proofManager.submitProofValidationResult(IProofManager.ProofRequestIdentifier(1, 1), false);
         assertProofRequest(
             IProofManager.ProofRequestIdentifier(1, 1),
@@ -783,7 +872,7 @@ contract ProofManagerV1Test is Test {
 
     /// @dev Reverts if there are not enough funds.
     function testClaimRewardRevertsIfNotEnoughFunds() public {
-        vm.prank(owner);
+        vm.prank(submitter);
         proofManager.submitProofRequest(
             IProofManager.ProofRequestIdentifier(1, 1),
             IProofManager.ProofRequestParams({
@@ -792,20 +881,20 @@ contract ProofManagerV1Test is Test {
                 protocolMinor: 27,
                 protocolPatch: 0,
                 timeoutAfter: 3600,
-                maxReward: 1_005e6
+                maxReward: 5_000_000
             })
         );
         vm.prank(fermah);
         proofManager.acknowledgeProofRequest(IProofManager.ProofRequestIdentifier(1, 1), true);
         vm.prank(fermah);
         proofManager.submitProof(
-            IProofManager.ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 1_001e6
+            IProofManager.ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 1_000_001
         );
-        vm.prank(owner);
+        vm.prank(submitter);
         proofManager.submitProofValidationResult(IProofManager.ProofRequestIdentifier(1, 1), true);
 
         vm.expectRevert(
-            abi.encodeWithSelector(IProofManager.NotEnoughUsdcFunds.selector, 1_000e6, 1_001e6)
+            abi.encodeWithSelector(IProofManager.NotEnoughUsdcFunds.selector, 1_000_000, 1_000_001)
         );
         vm.prank(fermah);
         proofManager.claimReward();
@@ -817,7 +906,7 @@ contract ProofManagerV1Test is Test {
 
     /// @dev Test proofRequest getter sets the right status after timeouts.
     function testProofRequestStatusIsSetOnTimeouts() public {
-        vm.prank(owner);
+        vm.prank(submitter);
         proofManager.submitProofRequest(
             IProofManager.ProofRequestIdentifier(1, 1),
             IProofManager.ProofRequestParams({
@@ -937,7 +1026,7 @@ contract ProofManagerV1Test is Test {
     function submitDefaultProofRequest(uint256 chainId, uint256 blockNumber) private {
         IProofManager.ProofRequestIdentifier memory id =
             IProofManager.ProofRequestIdentifier({ chainId: chainId, blockNumber: blockNumber });
-        vm.prank(owner);
+        vm.prank(submitter);
         proofManager.submitProofRequest(id, defaultProofRequestParams());
     }
 
@@ -958,10 +1047,12 @@ contract ProofManagerV1Test is Test {
     }
 
     /// @dev Expects default revert for ownable contract.
-    function expectOwnableRevert(address expectedCaller) private {
+    function expectAccessRevert(address caller, bytes32 neededRole) private {
         vm.expectRevert(
             abi.encodeWithSelector(
-                bytes4(keccak256("OwnableUnauthorizedAccount(address)")), expectedCaller
+                bytes4(keccak256("AccessControlUnauthorizedAccount(address,bytes32)")),
+                caller,
+                neededRole
             )
         );
     }
