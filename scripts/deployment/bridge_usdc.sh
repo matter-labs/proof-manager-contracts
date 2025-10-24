@@ -7,20 +7,18 @@ export CHAIN_NAME
 
 echo "STARTING BRIDGE TOKEN TO $CHAIN_NAME"
 
-export NTV_ADDRESS=$NTV_ADDRESS
 export BH_ADDRESS=$BH_ADDRESS
 export SHARED_BRIDGE_L1_ADDRESS=$SHARED_BRIDGE_L1_ADDRESS
 export L1_RPC_URL=$L1_RPC_URL # RPC URL of L1
 export L2_RPC_URL=$L2_RPC_URL # RPC URL of L2
-export L1_CHAIN_ID=$(cast chain-id)
+export L1_CHAIN_ID=$(cast chain-id --rpc-url $L1_RPC_URL)
+export L2_CHAIN_ID=$(cast chain-id --rpc-url $L2_RPC_URL)
 export PRIVATE_KEY=$PRIVATE_KEY
-export SENDER=$SENDER
-export CHAIN_ID=$L2_CHAIN_ID
+export SENDER=$(cast wallet address --private-key $PRIVATE_KEY)
 export TOKEN_ADDRESS=$TOKEN_ADDRESS
 export AMOUNT=$AMOUNT
 
-echo "CHAIN_ID: $CHAIN_ID"
-echo "TOKEN_ADDRESS: $TOKEN_ADDRESS"
+echo "Bridging $AMOUNT $TOKEN_ADDRESS from $L1_CHAIN_ID to $L2_CHAIN_ID with sender $SENDER"
 
 export TOKEN_ASSET_ID=$(cast keccak $(cast abi-encode "selectorNotUsed(uint256,address,address)" \
   $(printf "0x%02x\n" "$L1_CHAIN_ID") \
@@ -28,37 +26,61 @@ export TOKEN_ASSET_ID=$(cast keccak $(cast abi-encode "selectorNotUsed(uint256,a
   "$TOKEN_ADDRESS"))
 
 # === Build bridge calldata ===
-ENCODED_PAYLOAD=$(cast abi-encode "selectorNotUsed(uint256,address,address)" \
-  100 \
+TRANSFER_DATA=$(cast abi-encode "selectorNotUsed(uint256,address,address)" \
+  $AMOUNT \
   $SENDER \
-  "$TOKEN_ADDRESS" | cut -c 3-)
+  $TOKEN_ADDRESS)
 
-export BRIDGE_DATA="0x01${TOKEN_ASSET_ID:2}00000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000060$ENCODED_PAYLOAD"
+CALLDATA_PAYLOAD=$(cast abi-encode "selectorNotUsed(bytes32,bytes)" \
+  $TOKEN_ASSET_ID \
+  $TRANSFER_DATA)
+
+export BRIDGE_DATA="0x01${CALLDATA_PAYLOAD:2}"
+
+echo "BRIDGE_DATA: $BRIDGE_DATA"
 
 echo "TOKEN_ASSET_ID: $TOKEN_ASSET_ID"
 
-export GAS_PRICE=$(cast gas-price --rpc-url $RPC_URL)
+CURRENT_BALANCE=$(cast call $TOKEN_ADDRESS "balanceOf(address)(uint256)" $SENDER --rpc-url $L1_RPC_URL | awk '{print $1}')
 
-# We assume that sender already has the amount of tokens to bridge
+CURRENT_ALLOWANCE=$(cast call $TOKEN_ADDRESS "allowance(address,address)(uint256)" $SENDER $NTV_ADDRESS --rpc-url $L1_RPC_URL | awk '{print $1}')
+export GAS_PRICE=$(cast gas-price --rpc-url $L1_RPC_URL)
 
-cast send --from $SENDER \
-  --private-key $PRIVATE_KEY \
-  "$TOKEN_ADDRESS" \
-  "approve(address,uint256)" "$NTV_ADDRESS" $AMOUNT \
-  --rpc-url $RPC_URL \
-  --gas-price $GAS_PRICE
+echo "GAS_PRICE: $GAS_PRICE"
 
-# === Send message through bridge ===
-cast send --from $SENDER \
-  --private-key $PRIVATE_KEY \
-  "$BH_ADDRESS" \
-  "requestL2TransactionTwoBridges((uint256,uint256,uint256,uint256,uint256,address,address,uint256,bytes))" \
-  "(271,10000000000000000000000000000000,0,10000000,800,$SENDER,$SHARED_BRIDGE_L1_ADDRESS,0,$BRIDGE_DATA)" \
-  --gas-limit 10000000 \
-  --value 10000000000000000000000000000000 \
-  --rpc-url $RPC_URL \
-  --gas-price 100000
+if [ $CURRENT_ALLOWANCE -lt $AMOUNT ]; then
+  cast send --from $SENDER \
+    --private-key $PRIVATE_KEY \
+    "$TOKEN_ADDRESS" \
+    "approve(address,uint256)" "$NTV_ADDRESS" $AMOUNT \
+    --rpc-url $L1_RPC_URL \
+    --gas-price $GAS_PRICE
+fi
+
+CURRENT_ALLOWANCE=$(cast call $TOKEN_ADDRESS "allowance(address,address)(uint256)" $SENDER $NTV_ADDRESS --rpc-url $L1_RPC_URL | awk '{print $1}')
+
+ # 1) compute base cost with the EXACT gas price you’ll send with
+GAS_PRICE=$(cast gas-price --rpc-url $L1_RPC_URL)
+L2_GAS_LIMIT=10000000
+PUBDATA=800
+MINT_VALUE=$(cast call $BH_ADDRESS \
+  'l2TransactionBaseCost(uint256,uint256,uint256,uint256)(uint256)' \
+  $L2_CHAIN_ID $GAS_PRICE $L2_GAS_LIMIT $PUBDATA \
+  --rpc-url $L1_RPC_URL | awk '{print $1}')
+
+# 2) send paying that amount (and pin the same gas price)
+cast send --from $SENDER --private-key $PRIVATE_KEY "$BH_ADDRESS" \
+  'requestL2TransactionTwoBridges((uint256,uint256,uint256,uint256,uint256,address,address,uint256,bytes))' \
+  "($L2_CHAIN_ID,$MINT_VALUE,0,$L2_GAS_LIMIT,$PUBDATA,$SENDER,$SHARED_BRIDGE_L1_ADDRESS,0,$BRIDGE_DATA)" \
+  --rpc-url $L1_RPC_URL \
+  --gas-limit $L2_GAS_LIMIT \
+  --gas-price $GAS_PRICE \
+  --legacy \
+  --value $MINT_VALUE
+
 
 L2_TOKEN_ADDRESS=$(cast call 0x0000000000000000000000000000000000010004  "tokenAddress(bytes32)(address)" $TOKEN_ASSET_ID  --rpc-url $L2_RPC_URL)
 
-echo "Token address on L2: $L2_TOKEN_ADDRESS"
+echo "Token address on L2: $L2_TOKEN_ADDRESS. If this value is 0, the token is not bridged yet, you can try to run the following query to check again later:
+
+cast call 0x0000000000000000000000000000000000010004  \"tokenAddress(bytes32)(address)\" $TOKEN_ASSET_ID  --rpc-url $L2_RPC_URL"
