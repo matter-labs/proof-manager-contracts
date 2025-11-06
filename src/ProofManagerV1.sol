@@ -5,8 +5,7 @@ import "./store/ProofManagerStorage.sol";
 import "./interfaces/IProofManager.sol";
 
 import {
-    AccessControlUpgradeable,
-    DEFAULT_ADMIN_ROLE
+    AccessControlUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {
@@ -85,10 +84,13 @@ contract ProofManagerV1 is
     //                 Initialization
     // //////////////////////////////////////////*/
 
-    function initialize(address fermah, address lagrange, address _usdc, address _submitter, address _admin)
-        external
-        initializer
-    {
+    function initialize(
+        address fermah,
+        address lagrange,
+        address _usdc,
+        address _submitter,
+        address _admin
+    ) external initializer {
         if (_submitter == address(0)) revert AddressCannotBeZero("submitter");
         if (_admin == address(0)) revert AddressCannotBeZero("admin");
         if (fermah == address(0)) revert AddressCannotBeZero("fermah");
@@ -192,7 +194,8 @@ contract ProofManagerV1 is
         }
 
         ProvingNetwork assignedTo = _nextAssignee();
-        bool refused = (assignedTo == ProvingNetwork.None)
+        bool refused =
+            (assignedTo == ProvingNetwork.None)
             || _provingNetworks[assignedTo].status == ProvingNetworkStatus.Inactive;
 
         ProofRequestStatus status =

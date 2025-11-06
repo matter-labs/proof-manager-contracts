@@ -44,7 +44,7 @@ contract ProofManagerV1Test is Test {
         proofManager = ProofManagerV1Harness(address(proxy));
         vm.prank(owner);
 
-        proofManager.initialize(fermah, lagrange, address(usdc), submitter);
+        proofManager.initialize(fermah, lagrange, address(usdc), submitter, owner);
 
         usdc.mint(address(proofManager), 1_000_000);
     }
@@ -107,7 +107,7 @@ contract ProofManagerV1Test is Test {
         ProofManagerV1 _proofManager = ProofManagerV1(address(proxy));
         vm.prank(owner);
 
-        _proofManager.initialize(fermah, lagrange, address(this), submitter);
+        _proofManager.initialize(fermah, lagrange, address(this), submitter, owner);
     }
 
     /// @dev Do not allow zero address for submitter.
@@ -125,7 +125,7 @@ contract ProofManagerV1Test is Test {
             abi.encodeWithSelector(IProofManager.AddressCannotBeZero.selector, "submitter")
         );
 
-        _proofManager.initialize(fermah, lagrange, address(usdc), address(0));
+        _proofManager.initialize(fermah, lagrange, address(usdc), address(0), owner);
     }
 
     /// @dev Do not allow zero address for proving networks.
@@ -143,14 +143,14 @@ contract ProofManagerV1Test is Test {
         );
 
         vm.prank(owner);
-        _proofManager.initialize(address(0), lagrange, address(usdc), submitter);
+        _proofManager.initialize(address(0), lagrange, address(usdc), submitter, owner);
 
         vm.expectRevert(
             abi.encodeWithSelector(IProofManager.AddressCannotBeZero.selector, "lagrange")
         );
 
         vm.prank(owner);
-        _proofManager.initialize(fermah, address(0), address(usdc), submitter);
+        _proofManager.initialize(fermah, address(0), address(usdc), submitter, owner);
     }
 
     /// @dev Do not allow zero address for USDC contract.
@@ -166,7 +166,7 @@ contract ProofManagerV1Test is Test {
 
         vm.expectRevert(abi.encodeWithSelector(IProofManager.AddressCannotBeZero.selector, "usdc"));
 
-        _proofManager.initialize(fermah, lagrange, address(0), submitter);
+        _proofManager.initialize(fermah, lagrange, address(0), submitter, owner);
     }
 
     /*//////////////////////////////////////////

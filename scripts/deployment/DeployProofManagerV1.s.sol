@@ -27,7 +27,8 @@ contract DeployProofManagerV1 is Script {
         ProxyAdmin admin = new ProxyAdmin(PROXY_OWNER);
 
         bytes memory init = abi.encodeCall(
-            ProofManagerV1.initialize, (FERMAH, LAGRANGE, USDC, PROOF_MANAGER_SUBMITTER, ADMIN_ADDRESS)
+            ProofManagerV1.initialize,
+            (FERMAH, LAGRANGE, USDC, PROOF_MANAGER_SUBMITTER, ADMIN_ADDRESS)
         );
 
         TransparentUpgradeableProxy proxy =
