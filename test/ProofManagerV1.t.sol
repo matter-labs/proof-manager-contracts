@@ -716,9 +716,7 @@ contract ProofManagerV1Test is Test {
     function testCannotAcknowledgeUnexistingProofRequest() public {
         vm.prank(fermah);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                IProofManager.OnlyProvingNetworkAssigneeAllowed.selector, fermah
-            )
+            abi.encodeWithSelector(IProofManager.OnlyProvingNetworkAssigneeAllowed.selector, fermah)
         );
         proofManager.acknowledgeProofRequest(IProofManager.ProofRequestIdentifier(1, 1), true);
     }
@@ -820,9 +818,7 @@ contract ProofManagerV1Test is Test {
     function testCannontSubmitProofForUnexistentProofRequest() public {
         vm.prank(fermah);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                IProofManager.OnlyProvingNetworkAssigneeAllowed.selector, fermah
-            )
+            abi.encodeWithSelector(IProofManager.OnlyProvingNetworkAssigneeAllowed.selector, fermah)
         );
         proofManager.submitProof(
             IProofManager.ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 3e6
