@@ -194,8 +194,7 @@ contract ProofManagerV1 is
         }
 
         ProvingNetwork assignedTo = _nextAssignee();
-        bool refused =
-            (assignedTo == ProvingNetwork.None)
+        bool refused = (assignedTo == ProvingNetwork.None)
             || _provingNetworks[assignedTo].status == ProvingNetworkStatus.Inactive;
 
         ProofRequestStatus status =

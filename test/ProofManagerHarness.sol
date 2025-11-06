@@ -8,18 +8,16 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 /// @dev Test‑only wrapper that bypasses internal checks for ease of testing.
 contract ProofManagerV1Harness is ProofManagerV1 {
     /// @dev Changes status of a proof request, disregarding access rules.
-    function forceSetProofRequestStatus(
-        ProofRequestIdentifier memory id,
-        ProofRequestStatus status
-    ) external {
+    function forceSetProofRequestStatus(ProofRequestIdentifier memory id, ProofRequestStatus status)
+        external
+    {
         _proofRequests[id.chainId][id.blockNumber].status = status;
     }
 
     /// @dev Changes assignee of proof request, regardless of round robin.
-    function forceSetProofRequestAssignee(
-        ProofRequestIdentifier memory id,
-        ProvingNetwork assignee
-    ) external {
+    function forceSetProofRequestAssignee(ProofRequestIdentifier memory id, ProvingNetwork assignee)
+        external
+    {
         _proofRequests[id.chainId][id.blockNumber].assignedTo = assignee;
     }
 }
