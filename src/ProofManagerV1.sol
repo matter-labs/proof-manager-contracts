@@ -5,7 +5,8 @@ import "./store/ProofManagerStorage.sol";
 import "./interfaces/IProofManager.sol";
 
 import {
-    AccessControlUpgradeable
+    AccessControlUpgradeable,
+    DEFAULT_ADMIN_ROLE
 } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {
@@ -31,7 +32,6 @@ contract ProofManagerV1 is
     AccessControlUpgradeable,
     ProofManagerStorage
 {
-    bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
     bytes32 public constant SUBMITTER_ROLE = keccak256("SUBMITTER_ROLE");
 
     /*//////////////////////////////////////////
@@ -85,17 +85,18 @@ contract ProofManagerV1 is
     //                 Initialization
     // //////////////////////////////////////////*/
 
-    function initialize(address fermah, address lagrange, address _usdc, address _submitter)
+    function initialize(address fermah, address lagrange, address _usdc, address _submitter, address _admin)
         external
         initializer
     {
         if (_submitter == address(0)) revert AddressCannotBeZero("submitter");
+        if (_admin == address(0)) revert AddressCannotBeZero("admin");
         if (fermah == address(0)) revert AddressCannotBeZero("fermah");
         if (lagrange == address(0)) revert AddressCannotBeZero("lagrange");
         if (_usdc == address(0)) revert AddressCannotBeZero("usdc");
 
         __AccessControl_init();
-        _grantRole(OWNER_ROLE, msg.sender);
+        _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(SUBMITTER_ROLE, _submitter);
 
         usdc = IERC20(_usdc);
@@ -146,7 +147,7 @@ contract ProofManagerV1 is
     /// @inheritdoc IProofManager
     function updateProvingNetworkAddress(ProvingNetwork provingNetwork, address addr)
         external
-        onlyRole(OWNER_ROLE)
+        onlyRole(DEFAULT_ADMIN_ROLE)
         provingNetworkNotNone(provingNetwork)
     {
         if (addr == address(0)) revert AddressCannotBeZero("proving network");
@@ -156,7 +157,7 @@ contract ProofManagerV1 is
     /// @inheritdoc IProofManager
     function updateProvingNetworkStatus(ProvingNetwork provingNetwork, ProvingNetworkStatus status)
         external
-        onlyRole(OWNER_ROLE)
+        onlyRole(DEFAULT_ADMIN_ROLE)
         provingNetworkNotNone(provingNetwork)
     {
         _provingNetworks[provingNetwork].status = status;
@@ -166,7 +167,7 @@ contract ProofManagerV1 is
     /// @inheritdoc IProofManager
     function updatePreferredProvingNetwork(ProvingNetwork provingNetwork)
         external
-        onlyRole(OWNER_ROLE)
+        onlyRole(DEFAULT_ADMIN_ROLE)
     {
         _updatePreferredProvingNetwork(provingNetwork);
     }
