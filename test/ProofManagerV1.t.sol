@@ -1,4 +1,4 @@
-// // SPDX‑License‑Identifier: MIT
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
@@ -706,7 +706,7 @@ contract ProofManagerV1Test is Test {
         vm.prank(lagrange);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IProofManager.OnlyProvingNetworkAssigneedAllowed.selector, lagrange
+                IProofManager.OnlyProvingNetworkAssigneeAllowed.selector, lagrange
             )
         );
         proofManager.acknowledgeProofRequest(IProofManager.ProofRequestIdentifier(1, 1), true);
@@ -717,7 +717,7 @@ contract ProofManagerV1Test is Test {
         vm.prank(fermah);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IProofManager.OnlyProvingNetworkAssigneedAllowed.selector, fermah
+                IProofManager.OnlyProvingNetworkAssigneeAllowed.selector, fermah
             )
         );
         proofManager.acknowledgeProofRequest(IProofManager.ProofRequestIdentifier(1, 1), true);
@@ -808,7 +808,7 @@ contract ProofManagerV1Test is Test {
         vm.prank(lagrange);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IProofManager.OnlyProvingNetworkAssigneedAllowed.selector, lagrange
+                IProofManager.OnlyProvingNetworkAssigneeAllowed.selector, lagrange
             )
         );
         proofManager.submitProof(
@@ -821,7 +821,7 @@ contract ProofManagerV1Test is Test {
         vm.prank(fermah);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IProofManager.OnlyProvingNetworkAssigneedAllowed.selector, fermah
+                IProofManager.OnlyProvingNetworkAssigneeAllowed.selector, fermah
             )
         );
         proofManager.submitProof(

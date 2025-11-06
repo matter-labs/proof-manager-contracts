@@ -1,4 +1,4 @@
-// SPDX‑License‑Identifier: MIT
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 import "./store/ProofManagerStorage.sol";
@@ -65,7 +65,7 @@ contract ProofManagerV1 is
         if (
             _provingNetworks[_proofRequests[id.chainId][id.blockNumber].assignedTo].addr
                 != msg.sender
-        ) revert OnlyProvingNetworkAssigneedAllowed(msg.sender);
+        ) revert OnlyProvingNetworkAssigneeAllowed(msg.sender);
         _;
     }
 
