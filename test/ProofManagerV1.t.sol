@@ -30,7 +30,7 @@ contract ProofManagerV1Test is Test {
     address externalAddr = makeAddr("externalAddr");
     address otherProvingNetwork = makeAddr("otherProvingNetwork");
 
-    bytes32 owner_role = keccak256("OWNER_ROLE");
+    bytes32 owner_role = 0x00;
     bytes32 submitter_role = keccak256("SUBMITTER_ROLE");
 
     function setUp() public virtual {
