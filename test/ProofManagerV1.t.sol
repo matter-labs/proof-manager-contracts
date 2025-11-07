@@ -1,4 +1,4 @@
-// // SPDX‑License‑Identifier: MIT
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
@@ -30,7 +30,7 @@ contract ProofManagerV1Test is Test {
     address externalAddr = makeAddr("externalAddr");
     address otherProvingNetwork = makeAddr("otherProvingNetwork");
 
-    bytes32 owner_role = keccak256("OWNER_ROLE");
+    bytes32 owner_role = 0x00;
     bytes32 submitter_role = keccak256("SUBMITTER_ROLE");
 
     function setUp() public virtual {
@@ -44,7 +44,7 @@ contract ProofManagerV1Test is Test {
         proofManager = ProofManagerV1Harness(address(proxy));
         vm.prank(owner);
 
-        proofManager.initialize(fermah, lagrange, address(usdc), submitter);
+        proofManager.initialize(fermah, lagrange, address(usdc), submitter, owner);
 
         usdc.mint(address(proofManager), 1_000_000);
     }
@@ -107,7 +107,7 @@ contract ProofManagerV1Test is Test {
         ProofManagerV1 _proofManager = ProofManagerV1(address(proxy));
         vm.prank(owner);
 
-        _proofManager.initialize(fermah, lagrange, address(this), submitter);
+        _proofManager.initialize(fermah, lagrange, address(this), submitter, owner);
     }
 
     /// @dev Do not allow zero address for submitter.
@@ -125,7 +125,7 @@ contract ProofManagerV1Test is Test {
             abi.encodeWithSelector(IProofManager.AddressCannotBeZero.selector, "submitter")
         );
 
-        _proofManager.initialize(fermah, lagrange, address(usdc), address(0));
+        _proofManager.initialize(fermah, lagrange, address(usdc), address(0), owner);
     }
 
     /// @dev Do not allow zero address for proving networks.
@@ -143,14 +143,14 @@ contract ProofManagerV1Test is Test {
         );
 
         vm.prank(owner);
-        _proofManager.initialize(address(0), lagrange, address(usdc), submitter);
+        _proofManager.initialize(address(0), lagrange, address(usdc), submitter, owner);
 
         vm.expectRevert(
             abi.encodeWithSelector(IProofManager.AddressCannotBeZero.selector, "lagrange")
         );
 
         vm.prank(owner);
-        _proofManager.initialize(fermah, address(0), address(usdc), submitter);
+        _proofManager.initialize(fermah, address(0), address(usdc), submitter, owner);
     }
 
     /// @dev Do not allow zero address for USDC contract.
@@ -166,7 +166,7 @@ contract ProofManagerV1Test is Test {
 
         vm.expectRevert(abi.encodeWithSelector(IProofManager.AddressCannotBeZero.selector, "usdc"));
 
-        _proofManager.initialize(fermah, lagrange, address(0), submitter);
+        _proofManager.initialize(fermah, lagrange, address(0), submitter, owner);
     }
 
     /*//////////////////////////////////////////
@@ -706,7 +706,7 @@ contract ProofManagerV1Test is Test {
         vm.prank(lagrange);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IProofManager.OnlyProvingNetworkAssigneedAllowed.selector, lagrange
+                IProofManager.OnlyProvingNetworkAssigneeAllowed.selector, lagrange
             )
         );
         proofManager.acknowledgeProofRequest(IProofManager.ProofRequestIdentifier(1, 1), true);
@@ -716,9 +716,7 @@ contract ProofManagerV1Test is Test {
     function testCannotAcknowledgeUnexistingProofRequest() public {
         vm.prank(fermah);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                IProofManager.OnlyProvingNetworkAssigneedAllowed.selector, fermah
-            )
+            abi.encodeWithSelector(IProofManager.OnlyProvingNetworkAssigneeAllowed.selector, fermah)
         );
         proofManager.acknowledgeProofRequest(IProofManager.ProofRequestIdentifier(1, 1), true);
     }
@@ -808,7 +806,7 @@ contract ProofManagerV1Test is Test {
         vm.prank(lagrange);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IProofManager.OnlyProvingNetworkAssigneedAllowed.selector, lagrange
+                IProofManager.OnlyProvingNetworkAssigneeAllowed.selector, lagrange
             )
         );
         proofManager.submitProof(
@@ -820,9 +818,7 @@ contract ProofManagerV1Test is Test {
     function testCannontSubmitProofForUnexistentProofRequest() public {
         vm.prank(fermah);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                IProofManager.OnlyProvingNetworkAssigneedAllowed.selector, fermah
-            )
+            abi.encodeWithSelector(IProofManager.OnlyProvingNetworkAssigneeAllowed.selector, fermah)
         );
         proofManager.submitProof(
             IProofManager.ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 3e6

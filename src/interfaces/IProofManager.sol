@@ -1,4 +1,4 @@
-// SPDX‑License‑Identifier: MIT
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 /// @author Matter Labs
@@ -171,7 +171,7 @@ interface IProofManager {
     error OnlyProvingNetworkAllowed(address sender);
 
     /// @param sender the address that tried to call the function
-    error OnlyProvingNetworkAssigneedAllowed(address sender);
+    error OnlyProvingNetworkAssigneeAllowed(address sender);
 
     /// @param status the status of the proof request when proving was tried (must be different than Committed)
     error ProofRequestIsNotCommitted(ProofRequestStatus status);
