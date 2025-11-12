@@ -29,4 +29,6 @@ abstract contract ProofManagerStorage {
 
     /// @dev USDC contract address used for paying proofs.
     IERC20 internal usdc;
+
+    MinHeapLib.Heap private _heap;
 }

@@ -22,6 +22,8 @@ import {
     L2_ASSET_ROUTER_ADDR
 } from "era-contracts/l1-contracts/contracts/common/L2ContractAddresses.sol";
 
+import { MinHeapLib } from "./MinHeap.sol";
+
 /// @author Matter Labs
 /// @custom:security-contact security@matterlabs.dev
 /// @notice Entry point for Proof Manager.
@@ -41,6 +43,8 @@ contract ProofManagerV1 is
     ///     Proving Networks have 2 minutes to commit to proving a proof request once posted on chain.
     ///     Minimizes the proving downtime in case of communication failure.
     uint256 private constant ACK_TIMEOUT = 2 minutes;
+
+    uint256 private constant MAX_TIMEOUT_AFTER = 3 hours;
 
     /// @dev Hard-coded constant on maximum reward amount.
     ///      Constant limits maximum reward that can be provided for a single proof request.
@@ -107,6 +111,7 @@ contract ProofManagerV1 is
         _initializeProvingNetwork(ProvingNetwork.Lagrange, lagrange);
 
         _updatePreferredProvingNetwork(ProvingNetwork.None);
+
         // NOTE: _requestCounter is set to 0 by default.
     }
 
@@ -193,12 +198,20 @@ contract ProofManagerV1 is
             revert MaxRewardOutOfBounds();
         }
 
+        _purge_expired_requests();
+
+        if (!_can_accept_request()) {
+            revert NoFundsAvailable();
+        }
+
         ProvingNetwork assignedTo = _nextAssignee();
         bool refused = (assignedTo == ProvingNetwork.None)
             || _provingNetworks[assignedTo].status == ProvingNetworkStatus.Inactive;
 
         ProofRequestStatus status =
             refused ? ProofRequestStatus.Refused : ProofRequestStatus.PendingAcknowledgement;
+
+        uint256 heapIndex = _heap.insert(block.timestamp + ACK_TIMEOUT, id);
 
         _proofRequests[id.chainId][id.blockNumber] = ProofRequest({
             proofInputsUrl: params.proofInputsUrl,
@@ -212,7 +225,8 @@ contract ProofManagerV1 is
             assignedTo: assignedTo,
             requestedReward: 0,
             proof: bytes(""),
-            requestId: _requestCounter
+            requestId: _requestCounter,
+            heapIndex: heapIndex
         });
 
         emit ProofRequestSubmitted(
@@ -247,9 +261,13 @@ contract ProofManagerV1 is
                 _provingNetworks[_proofRequest.assignedTo];
             // overflow is not a problem here, the contract would have to pay billion of trillions of current world GDP before it would happen
             _provingNetworkInfo.owedReward += _proofRequest.requestedReward;
+
         } else {
             _proofRequest.status = ProofRequestStatus.ValidationFailed;
         }
+
+        _heap.removeAt(_proofRequest.heapIndex);
+
         emit ProofValidationResult(
             id.chainId, id.blockNumber, isProofValid, _proofRequest.assignedTo
         );
@@ -274,6 +292,9 @@ contract ProofManagerV1 is
         if (block.timestamp > _proofRequest.submittedAt + ACK_TIMEOUT) {
             revert ProofRequestAcknowledgementDeadlinePassed();
         }
+
+        MinHeapLib.Node memory node = _heap.removeAt(_proofRequest.heapIndex);
+        _heap.insert(block.timestamp + _proofRequest.timeoutAfter, _proofRequest.requestId);
 
         _proofRequest.status = accepted ? ProofRequestStatus.Committed : ProofRequestStatus.Refused;
 
@@ -358,5 +379,23 @@ contract ProofManagerV1 is
     function _updatePreferredProvingNetwork(ProvingNetwork provingNetwork) private {
         preferredProvingNetwork = provingNetwork;
         emit PreferredProvingNetworkUpdated(provingNetwork);
+    }
+
+    /// @dev Computes the total amount of potential in-flight requests.
+    function _can_accept_request() private view returns (bool) {
+        return (usdc.balanceOf(address(this)) - _provingNetworks[ProvingNetwork.Fermah].owedReward - _provingNetworks[ProvingNetwork.Lagrange].owedReward) / MAX_REWARD - _heap.size() > 0;
+    }
+
+    function _purge_expired_requests() private {
+        while (!_heap.isEmpty() && _heap.peek().key < block.timestamp) {
+            MinHeapLib.Node memory node = _heap.extractMin();
+            ProofRequest storage _proofRequest = _proofRequests[node.proofRequestIdentifier.chainId][node.proofRequestIdentifier.blockNumber];
+
+            if (_proofRequest.status == ProofRequestStatus.PendingAcknowledgement) {
+                _proofRequest.status = ProofRequestStatus.Unacknowledged;
+            } else if (_proofRequest.status == ProofRequestStatus.Committed) {
+                _proofRequest.status = ProofRequestStatus.TimedOut;
+            }
+        }
     }
 }

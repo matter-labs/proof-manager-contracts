@@ -91,6 +91,7 @@ interface IProofManager {
         uint256 requestedReward;
         bytes proof;
         uint256 requestId;
+        uint256 heapIndex;
     }
 
     /*//////////////////////////////////////////
