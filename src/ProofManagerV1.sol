@@ -191,7 +191,7 @@ contract ProofManagerV1 is
         if (_proofRequests[id.chainId][id.blockNumber].submittedAt != 0) {
             revert DuplicatedProofRequest(id.chainId, id.blockNumber);
         }
-        if (params.timeoutAfter <= ACK_TIMEOUT) {
+        if (params.timeoutAfter <= ACK_TIMEOUT || params.timeoutAfter > MAX_TIMEOUT_AFTER) {
             revert InvalidProofRequestTimeout();
         }
         if (params.maxReward == 0 || params.maxReward > MAX_REWARD) {
