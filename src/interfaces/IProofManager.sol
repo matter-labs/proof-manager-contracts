@@ -163,6 +163,9 @@ interface IProofManager {
 
     error NoPaymentDue();
 
+    /// @dev Thrown when the contract does not have enough funds to accept a new request.
+    error NoFundsAvailable();
+
     /// @param balance the balance of USDC currently available in the contract
     /// @param requested the amount of USDC that was requested to be transferred as part of claimReward() computation
     error NotEnoughUsdcFunds(uint256 balance, uint256 requested);

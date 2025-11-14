@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import "./store/ProofManagerStorage.sol";
+import { ProofRequestStorageLib } from "./store/ProofRequestStorage.sol";
 import "./interfaces/IProofManager.sol";
 
 import {
@@ -41,6 +42,8 @@ contract ProofManagerV1 is
     ///     Proving Networks have 2 minutes to commit to proving a proof request once posted on chain.
     ///     Minimizes the proving downtime in case of communication failure.
     uint256 private constant ACK_TIMEOUT = 2 minutes;
+
+    uint256 private constant MAX_TIMEOUT_AFTER = 3 hours;
 
     /// @dev Hard-coded constant on maximum reward amount.
     ///      Constant limits maximum reward that can be provided for a single proof request.
@@ -107,6 +110,7 @@ contract ProofManagerV1 is
         _initializeProvingNetwork(ProvingNetwork.Lagrange, lagrange);
 
         _updatePreferredProvingNetwork(ProvingNetwork.None);
+
         // NOTE: _requestCounter is set to 0 by default.
     }
 
@@ -186,11 +190,17 @@ contract ProofManagerV1 is
         if (_proofRequests[id.chainId][id.blockNumber].submittedAt != 0) {
             revert DuplicatedProofRequest(id.chainId, id.blockNumber);
         }
-        if (params.timeoutAfter <= ACK_TIMEOUT) {
+        if (params.timeoutAfter <= ACK_TIMEOUT || params.timeoutAfter > MAX_TIMEOUT_AFTER) {
             revert InvalidProofRequestTimeout();
         }
         if (params.maxReward == 0 || params.maxReward > MAX_REWARD) {
             revert MaxRewardOutOfBounds();
+        }
+
+        _purge_expired_requests();
+
+        if (!_can_accept_request()) {
+            revert NoFundsAvailable();
         }
 
         ProvingNetwork assignedTo = _nextAssignee();
@@ -199,6 +209,8 @@ contract ProofManagerV1 is
 
         ProofRequestStatus status =
             refused ? ProofRequestStatus.Refused : ProofRequestStatus.PendingAcknowledgement;
+
+        ProofRequestStorageLib.addProofRequest(_heap, block.timestamp + ACK_TIMEOUT, id);
 
         _proofRequests[id.chainId][id.blockNumber] = ProofRequest({
             proofInputsUrl: params.proofInputsUrl,
@@ -250,6 +262,9 @@ contract ProofManagerV1 is
         } else {
             _proofRequest.status = ProofRequestStatus.ValidationFailed;
         }
+
+        ProofRequestStorageLib.removeAt(_heap, id);
+
         emit ProofValidationResult(
             id.chainId, id.blockNumber, isProofValid, _proofRequest.assignedTo
         );
@@ -274,6 +289,11 @@ contract ProofManagerV1 is
         if (block.timestamp > _proofRequest.submittedAt + ACK_TIMEOUT) {
             revert ProofRequestAcknowledgementDeadlinePassed();
         }
+
+        ProofRequestStorageLib.removeAt(_heap, id);
+        ProofRequestStorageLib.addProofRequest(
+            _heap, block.timestamp + _proofRequest.timeoutAfter, id
+        );
 
         _proofRequest.status = accepted ? ProofRequestStatus.Committed : ProofRequestStatus.Refused;
 
@@ -358,5 +378,31 @@ contract ProofManagerV1 is
     function _updatePreferredProvingNetwork(ProvingNetwork provingNetwork) private {
         preferredProvingNetwork = provingNetwork;
         emit PreferredProvingNetworkUpdated(provingNetwork);
+    }
+
+    /// @dev Computes the total amount of potential in-flight requests.
+    function _can_accept_request() private view returns (bool) {
+        return (usdc.balanceOf(address(this))
+                    - _provingNetworks[ProvingNetwork.Fermah].owedReward
+                    - _provingNetworks[ProvingNetwork.Lagrange].owedReward) / MAX_REWARD
+                - ProofRequestStorageLib.size(_heap) > 0;
+    }
+
+    function _purge_expired_requests() private {
+        while (
+            !ProofRequestStorageLib.isEmpty(_heap)
+                && ProofRequestStorageLib.peek(_heap).key < block.timestamp
+        ) {
+            ProofRequestStorageLib.Node memory node = ProofRequestStorageLib.extractMin(_heap);
+            ProofRequest storage _proofRequest = _proofRequests[
+                node.proofRequestIdentifier.chainId
+            ][node.proofRequestIdentifier.blockNumber];
+
+            if (_proofRequest.status == ProofRequestStatus.PendingAcknowledgement) {
+                _proofRequest.status = ProofRequestStatus.Unacknowledged;
+            } else if (_proofRequest.status == ProofRequestStatus.Committed) {
+                _proofRequest.status = ProofRequestStatus.TimedOut;
+            }
+        }
     }
 }
