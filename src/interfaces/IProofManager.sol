@@ -91,7 +91,6 @@ interface IProofManager {
         uint256 requestedReward;
         bytes proof;
         uint256 requestId;
-        uint256 heapIndex;
     }
 
     /*//////////////////////////////////////////
@@ -163,6 +162,9 @@ interface IProofManager {
     error MaxRewardOutOfBounds();
 
     error NoPaymentDue();
+
+    /// @dev Thrown when the contract does not have enough funds to accept a new request.
+    error NoFundsAvailable();
 
     /// @param balance the balance of USDC currently available in the contract
     /// @param requested the amount of USDC that was requested to be transferred as part of claimReward() computation

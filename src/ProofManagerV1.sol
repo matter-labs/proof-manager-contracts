@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import "./store/ProofManagerStorage.sol";
+import { ProofRequestStorageLib } from "./store/ProofRequestStorage.sol";
 import "./interfaces/IProofManager.sol";
 
 import {
@@ -21,8 +22,6 @@ import {
     L2_NATIVE_TOKEN_VAULT_ADDR,
     L2_ASSET_ROUTER_ADDR
 } from "era-contracts/l1-contracts/contracts/common/L2ContractAddresses.sol";
-
-import { MinHeapLib } from "./MinHeap.sol";
 
 /// @author Matter Labs
 /// @custom:security-contact security@matterlabs.dev
@@ -211,7 +210,7 @@ contract ProofManagerV1 is
         ProofRequestStatus status =
             refused ? ProofRequestStatus.Refused : ProofRequestStatus.PendingAcknowledgement;
 
-        uint256 heapIndex = _heap.insert(block.timestamp + ACK_TIMEOUT, id);
+        ProofRequestStorageLib.addProofRequest(_heap, block.timestamp + ACK_TIMEOUT, id);
 
         _proofRequests[id.chainId][id.blockNumber] = ProofRequest({
             proofInputsUrl: params.proofInputsUrl,
@@ -225,8 +224,7 @@ contract ProofManagerV1 is
             assignedTo: assignedTo,
             requestedReward: 0,
             proof: bytes(""),
-            requestId: _requestCounter,
-            heapIndex: heapIndex
+            requestId: _requestCounter
         });
 
         emit ProofRequestSubmitted(
@@ -261,12 +259,11 @@ contract ProofManagerV1 is
                 _provingNetworks[_proofRequest.assignedTo];
             // overflow is not a problem here, the contract would have to pay billion of trillions of current world GDP before it would happen
             _provingNetworkInfo.owedReward += _proofRequest.requestedReward;
-
         } else {
             _proofRequest.status = ProofRequestStatus.ValidationFailed;
         }
 
-        _heap.removeAt(_proofRequest.heapIndex);
+        ProofRequestStorageLib.removeAt(_heap, id);
 
         emit ProofValidationResult(
             id.chainId, id.blockNumber, isProofValid, _proofRequest.assignedTo
@@ -293,8 +290,10 @@ contract ProofManagerV1 is
             revert ProofRequestAcknowledgementDeadlinePassed();
         }
 
-        MinHeapLib.Node memory node = _heap.removeAt(_proofRequest.heapIndex);
-        _heap.insert(block.timestamp + _proofRequest.timeoutAfter, _proofRequest.requestId);
+        ProofRequestStorageLib.removeAt(_heap, id);
+        ProofRequestStorageLib.addProofRequest(
+            _heap, block.timestamp + _proofRequest.timeoutAfter, id
+        );
 
         _proofRequest.status = accepted ? ProofRequestStatus.Committed : ProofRequestStatus.Refused;
 
@@ -383,13 +382,21 @@ contract ProofManagerV1 is
 
     /// @dev Computes the total amount of potential in-flight requests.
     function _can_accept_request() private view returns (bool) {
-        return (usdc.balanceOf(address(this)) - _provingNetworks[ProvingNetwork.Fermah].owedReward - _provingNetworks[ProvingNetwork.Lagrange].owedReward) / MAX_REWARD - _heap.size() > 0;
+        return (usdc.balanceOf(address(this))
+                    - _provingNetworks[ProvingNetwork.Fermah].owedReward
+                    - _provingNetworks[ProvingNetwork.Lagrange].owedReward) / MAX_REWARD
+                - ProofRequestStorageLib.size(_heap) > 0;
     }
 
     function _purge_expired_requests() private {
-        while (!_heap.isEmpty() && _heap.peek().key < block.timestamp) {
-            MinHeapLib.Node memory node = _heap.extractMin();
-            ProofRequest storage _proofRequest = _proofRequests[node.proofRequestIdentifier.chainId][node.proofRequestIdentifier.blockNumber];
+        while (
+            !ProofRequestStorageLib.isEmpty(_heap)
+                && ProofRequestStorageLib.peek(_heap).key < block.timestamp
+        ) {
+            ProofRequestStorageLib.Node memory node = ProofRequestStorageLib.extractMin(_heap);
+            ProofRequest storage _proofRequest = _proofRequests[
+                node.proofRequestIdentifier.chainId
+            ][node.proofRequestIdentifier.blockNumber];
 
             if (_proofRequest.status == ProofRequestStatus.PendingAcknowledgement) {
                 _proofRequest.status = ProofRequestStatus.Unacknowledged;
