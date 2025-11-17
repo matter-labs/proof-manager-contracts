@@ -423,6 +423,48 @@ contract ProofManagerV1Test is Test {
         );
     }
 
+    function testPurgeNotAcknowledgedRequestsOnSubmit() public {
+        submitDefaultProofRequest(1, 1);
+
+        IProofManager.ProofRequestIdentifier memory id =
+            IProofManager.ProofRequestIdentifier({ chainId: 1, blockNumber: 1 });
+
+        {
+            (IProofManager.ProofRequest memory rBefore) = proofManager.proofRequest(id);
+            assertEq(
+                uint8(rBefore.status),
+                uint8(IProofManager.ProofRequestStatus.PendingAcknowledgement)
+            );
+        }
+
+        vm.warp(block.timestamp + 3 minutes);
+
+        submitDefaultProofRequest(1, 2);
+
+        {
+            (IProofManager.ProofRequest memory rAfter) = proofManager.proofRequest(id);
+            assertEq(uint8(rAfter.status), uint8(IProofManager.ProofRequestStatus.Unacknowledged));
+        }
+    }
+
+    function testPurgeAcknowledgedRequestsOnSubmit() public {
+        submitDefaultProofRequest(1, 1);
+        vm.prank(fermah);
+
+        IProofManager.ProofRequestIdentifier memory id =
+            IProofManager.ProofRequestIdentifier({ chainId: 1, blockNumber: 1 });
+
+        proofManager.acknowledgeProofRequest(id, true);
+
+        vm.warp(block.timestamp + 3 hours);
+        submitDefaultProofRequest(1, 2);
+
+        {
+            (IProofManager.ProofRequest memory rAfter) = proofManager.proofRequest(id);
+            assertEq(uint8(rAfter.status), uint8(IProofManager.ProofRequestStatus.TimedOut));
+        }
+    }
+
     /// @dev Happy path for proof assignment logic.
     function testSubmitProofAssignmentLogic() public {
         SubmitProofExpected[8] memory outputs = [
