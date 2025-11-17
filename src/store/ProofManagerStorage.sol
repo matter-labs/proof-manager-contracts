@@ -3,14 +3,13 @@ pragma solidity ^0.8.28;
 
 import "../interfaces/IProofManager.sol";
 
-import { ProofRequestStorageLib } from "./ProofRequestStorage.sol";
+import { MinHeapLib } from "./MinHeapLib.sol";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @author Matter Labs
 /// @notice Storage layout. No logic here.
 abstract contract ProofManagerStorage {
-    using ProofRequestStorageLib for ProofRequestStorageLib.Heap;
     // /*////////////////////////
     //         Storage
     // ////////////////////////*/
@@ -33,5 +32,9 @@ abstract contract ProofManagerStorage {
     /// @dev USDC contract address used for paying proofs.
     IERC20 internal usdc;
 
-    ProofRequestStorageLib.Heap internal _heap;
+    /// @dev Heap that holds all in-flight proof requests.
+    MinHeapLib.Heap internal _heap;
+
+    /// @dev Unstable reward - amount of funds for proof requests that were proven but not validated yet.
+    uint256 internal unstableReward;
 }

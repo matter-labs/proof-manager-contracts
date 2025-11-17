@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import "./store/ProofManagerStorage.sol";
-import { ProofRequestStorageLib } from "./store/ProofRequestStorage.sol";
+import { MinHeapLib } from "./store/MinHeapLib.sol";
 import "./interfaces/IProofManager.sol";
 
 import {
@@ -32,6 +32,8 @@ contract ProofManagerV1 is
     AccessControlUpgradeable,
     ProofManagerStorage
 {
+    using MinHeapLib for MinHeapLib.Heap;
+
     bytes32 public constant SUBMITTER_ROLE = keccak256("SUBMITTER_ROLE");
 
     /*//////////////////////////////////////////
@@ -43,6 +45,9 @@ contract ProofManagerV1 is
     ///     Minimizes the proving downtime in case of communication failure.
     uint256 private constant ACK_TIMEOUT = 2 minutes;
 
+    /// @dev Hard-coded constant on maximum timeout after.
+    ///     Proving Networks have max 3 hours(can be less) to submit a proof once committed.
+    ///     This is to prevent Submitter to send requests that will be almost never expired.
     uint256 private constant MAX_TIMEOUT_AFTER = 3 hours;
 
     /// @dev Hard-coded constant on maximum reward amount.
@@ -210,7 +215,7 @@ contract ProofManagerV1 is
         ProofRequestStatus status =
             refused ? ProofRequestStatus.Refused : ProofRequestStatus.PendingAcknowledgement;
 
-        ProofRequestStorageLib.addProofRequest(_heap, block.timestamp + ACK_TIMEOUT, id);
+        _heap.addProofRequest(block.timestamp + ACK_TIMEOUT, id);
 
         _proofRequests[id.chainId][id.blockNumber] = ProofRequest({
             proofInputsUrl: params.proofInputsUrl,
@@ -263,7 +268,8 @@ contract ProofManagerV1 is
             _proofRequest.status = ProofRequestStatus.ValidationFailed;
         }
 
-        ProofRequestStorageLib.removeAt(_heap, id);
+        _heap.removeAt(id);
+        unstableReward -= _proofRequest.requestedReward;
 
         emit ProofValidationResult(
             id.chainId, id.blockNumber, isProofValid, _proofRequest.assignedTo
@@ -290,10 +296,7 @@ contract ProofManagerV1 is
             revert ProofRequestAcknowledgementDeadlinePassed();
         }
 
-        ProofRequestStorageLib.removeAt(_heap, id);
-        ProofRequestStorageLib.addProofRequest(
-            _heap, block.timestamp + _proofRequest.timeoutAfter, id
-        );
+        _heap.replaceAt(id, _proofRequest.submittedAt + _proofRequest.timeoutAfter);
 
         _proofRequest.status = accepted ? ProofRequestStatus.Committed : ProofRequestStatus.Refused;
 
@@ -321,6 +324,9 @@ contract ProofManagerV1 is
         _proofRequest.proof = proof;
         _proofRequest.requestedReward =
             requestedReward <= _proofRequest.maxReward ? requestedReward : _proofRequest.maxReward;
+
+        _heap.removeAt(id);
+        unstableReward += _proofRequest.requestedReward;
 
         emit ProofRequestProven(id.chainId, id.blockNumber, proof, _proofRequest.assignedTo);
     }
@@ -384,16 +390,13 @@ contract ProofManagerV1 is
     function _can_accept_request() private view returns (bool) {
         return (usdc.balanceOf(address(this))
                     - _provingNetworks[ProvingNetwork.Fermah].owedReward
-                    - _provingNetworks[ProvingNetwork.Lagrange].owedReward) / MAX_REWARD
-                - ProofRequestStorageLib.size(_heap) > 0;
+                    - _provingNetworks[ProvingNetwork.Lagrange].owedReward
+                    - unstableReward) / MAX_REWARD - _heap.size() > 0;
     }
 
     function _purge_expired_requests() private {
-        while (
-            !ProofRequestStorageLib.isEmpty(_heap)
-                && ProofRequestStorageLib.peek(_heap).key < block.timestamp
-        ) {
-            ProofRequestStorageLib.Node memory node = ProofRequestStorageLib.extractMin(_heap);
+        while (!_heap.isEmpty() && _heap.peek().key < block.timestamp) {
+            MinHeapLib.Node memory node = _heap.extractMin();
             ProofRequest storage _proofRequest = _proofRequests[
                 node.proofRequestIdentifier.chainId
             ][node.proofRequestIdentifier.blockNumber];
