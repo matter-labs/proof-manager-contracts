@@ -30,9 +30,9 @@ interface IProofManager {
     /// @param PendingAcknowledgement The state in which any request starts, waiting for the Proving Network to acknowledge it.
     /// @param Committed Proving Network has acknowledged the request and committed to prove it.
     /// @param Refused Proving Network has refused to prove the request (or the Proving Network is inactive).
-    /// @param Unacknowledged Proving Network has not acknowledged the request before the acknowledgement timeout has passed (note, this is only visible in the getter, storage is not modified).
+    /// @param Unacknowledged Proving Network has not acknowledged the request before the acknowledgement timeout has passed (note, this is only visible in the getter, storage is modified only when the request is purged).
     /// @param Proven Proving Network has proven the request and is waiting for validation.
-    /// @param TimedOut Proving Network has not proven the request before the proving timeout has passed (note, this is only visible in the getter, storage is not modified).
+    /// @param TimedOut Proving Network has not proven the request before the proving timeout has passed (note, this is only visible in the getter, storage is modified only when the request is purged).
     /// @param Validated The proof has been validated on settlement layer and is ready due for payment.
     /// @param ValidationFailed The proof failed validation on settlement layer and will not be paid (impact Proving Network score).
     enum ProofRequestStatus {

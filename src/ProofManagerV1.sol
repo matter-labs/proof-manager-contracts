@@ -390,8 +390,7 @@ contract ProofManagerV1 is
         uint256 obligations = _provingNetworks[ProvingNetwork.Fermah].owedReward
             + _provingNetworks[ProvingNetwork.Lagrange].owedReward + unstableReward;
 
-        if (obligations >= balance) return false;
-
+        // NOTE: With current mechanism of controling the reward, it is not possible to have more obligations than balance.
         uint256 free = balance - obligations;
         uint256 capacity = free / MAX_REWARD;
         return capacity > _heap.size();
