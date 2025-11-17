@@ -269,7 +269,7 @@ contract ProofManagerV1 is
         }
 
         unstableReward -= _proofRequest.requestedReward;
-        
+
         emit ProofValidationResult(
             id.chainId, id.blockNumber, isProofValid, _proofRequest.assignedTo
         );
@@ -388,10 +388,8 @@ contract ProofManagerV1 is
     /// @dev Computes the total amount of potential in-flight requests.
     function _can_accept_request() private view returns (bool) {
         uint256 balance = usdc.balanceOf(address(this));
-        uint256 obligations =
-            _provingNetworks[ProvingNetwork.Fermah].owedReward +
-            _provingNetworks[ProvingNetwork.Lagrange].owedReward +
-            unstableReward;
+        uint256 obligations = _provingNetworks[ProvingNetwork.Fermah].owedReward
+            + _provingNetworks[ProvingNetwork.Lagrange].owedReward + unstableReward;
 
         if (obligations >= balance) return false;
 
