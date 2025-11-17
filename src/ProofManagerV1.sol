@@ -341,10 +341,7 @@ contract ProofManagerV1 is
 
         if (toPay == 0) revert NoPaymentDue();
 
-        uint256 balance = usdc.balanceOf(address(this));
-
-        // NOTE: In theory, this should never happen because we check if there are enough funds before saving a request.
-        if (toPay > balance) revert NoFundsAvailable();
+        // NOTE: In theory, we always should have enough funds to pay the reward as it is controlled by the contract itself.
 
         info.owedReward = 0;
 

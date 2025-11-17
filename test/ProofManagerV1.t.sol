@@ -110,6 +110,22 @@ contract ProofManagerV1Test is Test {
         _proofManager.initialize(fermah, lagrange, address(this), submitter, owner);
     }
 
+    /// @dev Do not allow zero address for admin.
+    function testInitFailsWithZeroAdminAddress() public {
+        ProofManagerV1 impl = new ProofManagerV1();
+        ProxyAdmin admin = new ProxyAdmin(owner);
+
+        TransparentUpgradeableProxy proxy =
+            new TransparentUpgradeableProxy(address(impl), address(admin), "");
+
+        ProofManagerV1 _proofManager = ProofManagerV1(address(proxy));
+        vm.prank(owner);
+
+        vm.expectRevert(abi.encodeWithSelector(IProofManager.AddressCannotBeZero.selector, "admin"));
+
+        _proofManager.initialize(fermah, lagrange, address(usdc), submitter, address(0));
+    }
+
     /// @dev Do not allow zero address for submitter.
     function testInitFailsWithZeroSubmitterAddress() public {
         ProofManagerV1 impl = new ProofManagerV1();
