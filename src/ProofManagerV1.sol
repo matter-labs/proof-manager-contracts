@@ -268,9 +268,8 @@ contract ProofManagerV1 is
             _proofRequest.status = ProofRequestStatus.ValidationFailed;
         }
 
-        _heap.removeAt(id);
         unstableReward -= _proofRequest.requestedReward;
-
+        
         emit ProofValidationResult(
             id.chainId, id.blockNumber, isProofValid, _proofRequest.assignedTo
         );
@@ -388,10 +387,17 @@ contract ProofManagerV1 is
 
     /// @dev Computes the total amount of potential in-flight requests.
     function _can_accept_request() private view returns (bool) {
-        return (usdc.balanceOf(address(this))
-                    - _provingNetworks[ProvingNetwork.Fermah].owedReward
-                    - _provingNetworks[ProvingNetwork.Lagrange].owedReward
-                    - unstableReward) / MAX_REWARD - _heap.size() > 0;
+        uint256 balance = usdc.balanceOf(address(this));
+        uint256 obligations =
+            _provingNetworks[ProvingNetwork.Fermah].owedReward +
+            _provingNetworks[ProvingNetwork.Lagrange].owedReward +
+            unstableReward;
+
+        if (obligations >= balance) return false;
+
+        uint256 free = balance - obligations;
+        uint256 capacity = free / MAX_REWARD;
+        return capacity > _heap.size();
     }
 
     function _purge_expired_requests() private {
