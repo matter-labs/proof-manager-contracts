@@ -343,7 +343,9 @@ contract ProofManagerV1 is
 
         uint256 balance = usdc.balanceOf(address(this));
 
-        if (toPay > balance) revert NotEnoughUsdcFunds(balance, toPay);
+        // NOTE: In theory, this should never happen because we check if there are enough funds before saving a request.
+        if (toPay > balance) revert NoFundsAvailable();
+
         info.owedReward = 0;
 
         bytes32 assetId = INativeTokenVault(L2_NATIVE_TOKEN_VAULT_ADDR).assetId(address(usdc));
