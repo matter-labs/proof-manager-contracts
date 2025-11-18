@@ -25,7 +25,7 @@ contract HeapTestWrapper {
     function remove(uint256 chainId, uint256 blockNumber) external {
         IProofManager.ProofRequestIdentifier memory id =
             IProofManager.ProofRequestIdentifier({ chainId: chainId, blockNumber: blockNumber });
-        heap.removeAt(id);
+        heap.remove(id);
     }
 
     function replaceKey(uint256 chainId, uint256 blockNumber, uint256 newKey) external {
