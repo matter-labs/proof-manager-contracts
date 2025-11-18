@@ -33,6 +33,7 @@ abstract contract ProofManagerStorage {
     IERC20 internal usdc;
 
     /// @dev Heap that holds all in-flight proof requests.
+    ///      This way we can control amount of requests at certain moment of time and not exceed the funds capacity of the contract.
     MinHeapLib.Heap internal _heap;
 
     /// @dev Unstable reward - amount of funds for proof requests that were proven but not validated yet.

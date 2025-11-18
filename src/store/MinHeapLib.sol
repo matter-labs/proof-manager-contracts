@@ -87,7 +87,7 @@ library MinHeapLib {
         ][minNode.proofRequestIdentifier.blockNumber] = 0;
     }
 
-    function removeAt(
+    function remove(
         Heap storage heap,
         IProofManager.ProofRequestIdentifier memory proofRequestIdentifier
     ) public {

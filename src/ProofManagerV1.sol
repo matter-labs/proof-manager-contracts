@@ -46,8 +46,8 @@ contract ProofManagerV1 is
     uint256 private constant ACK_TIMEOUT = 2 minutes;
 
     /// @dev Hard-coded constant on maximum timeout after.
-    ///     Proving Networks have max 3 hours(can be less) to submit a proof once committed.
-    ///     This is to prevent Submitter to send requests that will be almost never expired.
+    ///     Proving Networks have min(MAX_TIMEOUT_AFTER, proving_request.timeout) time to prove the request.
+    ///     This guarantees that there will be no proofs accepted after 3 hours has passed since submission.
     uint256 private constant MAX_TIMEOUT_AFTER = 3 hours;
 
     /// @dev Hard-coded constant on maximum reward amount.
@@ -195,7 +195,7 @@ contract ProofManagerV1 is
         if (_proofRequests[id.chainId][id.blockNumber].submittedAt != 0) {
             revert DuplicatedProofRequest(id.chainId, id.blockNumber);
         }
-        if (params.timeoutAfter <= ACK_TIMEOUT || params.timeoutAfter > MAX_TIMEOUT_AFTER) {
+        if (!(ACK_TIMEOUT <= params.timeoutAfter && params.timeoutAfter <= MAX_TIMEOUT_AFTER)) {
             revert InvalidProofRequestTimeout();
         }
         if (params.maxReward == 0 || params.maxReward > MAX_REWARD) {
@@ -324,7 +324,7 @@ contract ProofManagerV1 is
         _proofRequest.requestedReward =
             requestedReward <= _proofRequest.maxReward ? requestedReward : _proofRequest.maxReward;
 
-        _heap.removeAt(id);
+        _heap.remove(id);
         unstableReward += _proofRequest.requestedReward;
 
         emit ProofRequestProven(id.chainId, id.blockNumber, proof, _proofRequest.assignedTo);
@@ -384,7 +384,7 @@ contract ProofManagerV1 is
         emit PreferredProvingNetworkUpdated(provingNetwork);
     }
 
-    /// @dev Computes the total amount of potential in-flight requests.
+    /// @dev Computes the total amount of in-flight requests and checks if the contract has enough funds to accept the new one
     function _can_accept_request() private view returns (bool) {
         uint256 balance = usdc.balanceOf(address(this));
         uint256 obligations = _provingNetworks[ProvingNetwork.Fermah].owedReward
@@ -396,6 +396,7 @@ contract ProofManagerV1 is
         return capacity > _heap.size();
     }
 
+    /// @dev Purges expired requests (block.timestamp > request.expiryTimestamp) from the heap.
     function _purge_expired_requests() private {
         while (!_heap.isEmpty() && _heap.peek().key < block.timestamp) {
             MinHeapLib.Node memory node = _heap.extractMin();
