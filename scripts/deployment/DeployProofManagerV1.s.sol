@@ -18,6 +18,7 @@ contract DeployProofManagerV1 is Script {
         address PROOF_MANAGER_SUBMITTER = vm.envAddress("PROOF_MANAGER_SUBMITTER_ADDRESS");
         address PROXY_OWNER = vm.envAddress("PROXY_OWNER_ADDRESS");
         address ADMIN_ADDRESS = vm.envAddress("ADMIN_ADDRESS");
+        uint256 TIMEOUT_AFTER = vm.envUint("TIMEOUT_AFTER");
 
         // PK & RPC expected to be passed as `--private-key` and `--rpc-url`
         vm.startBroadcast();
@@ -28,7 +29,7 @@ contract DeployProofManagerV1 is Script {
 
         bytes memory init = abi.encodeCall(
             ProofManagerV1.initialize,
-            (FERMAH, LAGRANGE, USDC, PROOF_MANAGER_SUBMITTER, ADMIN_ADDRESS)
+            (FERMAH, LAGRANGE, USDC, PROOF_MANAGER_SUBMITTER, ADMIN_ADDRESS, TIMEOUT_AFTER)
         );
 
         TransparentUpgradeableProxy proxy =

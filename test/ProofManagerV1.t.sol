@@ -29,6 +29,7 @@ contract ProofManagerV1Test is Test {
     address lagrange = makeAddr("lagrange");
     address externalAddr = makeAddr("externalAddr");
     address otherProvingNetwork = makeAddr("otherProvingNetwork");
+    uint256 timeoutAfter = 1 hours;
 
     bytes32 owner_role = 0x00;
     bytes32 submitter_role = keccak256("SUBMITTER_ROLE");
@@ -44,7 +45,7 @@ contract ProofManagerV1Test is Test {
         proofManager = ProofManagerV1Harness(address(proxy));
         vm.prank(owner);
 
-        proofManager.initialize(fermah, lagrange, address(usdc), submitter, owner);
+        proofManager.initialize(fermah, lagrange, address(usdc), submitter, owner, timeoutAfter);
 
         usdc.mint(address(proofManager), 1_000_000);
     }
@@ -107,7 +108,7 @@ contract ProofManagerV1Test is Test {
         ProofManagerV1 _proofManager = ProofManagerV1(address(proxy));
         vm.prank(owner);
 
-        _proofManager.initialize(fermah, lagrange, address(this), submitter, owner);
+        _proofManager.initialize(fermah, lagrange, address(this), submitter, owner, timeoutAfter);
     }
 
     /// @dev Do not allow zero address for submitter.
@@ -125,7 +126,7 @@ contract ProofManagerV1Test is Test {
             abi.encodeWithSelector(IProofManager.AddressCannotBeZero.selector, "submitter")
         );
 
-        _proofManager.initialize(fermah, lagrange, address(usdc), address(0), owner);
+        _proofManager.initialize(fermah, lagrange, address(usdc), address(0), owner, timeoutAfter);
     }
 
     /// @dev Do not allow zero address for proving networks.
@@ -143,14 +144,16 @@ contract ProofManagerV1Test is Test {
         );
 
         vm.prank(owner);
-        _proofManager.initialize(address(0), lagrange, address(usdc), submitter, owner);
+        _proofManager.initialize(
+            address(0), lagrange, address(usdc), submitter, owner, timeoutAfter
+        );
 
         vm.expectRevert(
             abi.encodeWithSelector(IProofManager.AddressCannotBeZero.selector, "lagrange")
         );
 
         vm.prank(owner);
-        _proofManager.initialize(fermah, address(0), address(usdc), submitter, owner);
+        _proofManager.initialize(fermah, address(0), address(usdc), submitter, owner, timeoutAfter);
     }
 
     /// @dev Do not allow zero address for USDC contract.
@@ -166,7 +169,7 @@ contract ProofManagerV1Test is Test {
 
         vm.expectRevert(abi.encodeWithSelector(IProofManager.AddressCannotBeZero.selector, "usdc"));
 
-        _proofManager.initialize(fermah, lagrange, address(0), submitter, owner);
+        _proofManager.initialize(fermah, lagrange, address(0), submitter, owner, timeoutAfter);
     }
 
     /*//////////////////////////////////////////

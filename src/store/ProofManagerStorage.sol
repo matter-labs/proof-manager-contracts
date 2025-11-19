@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import "../interfaces/IProofManager.sol";
-
+import { InFlightRequestsStorageLib } from "./InFlightRequestsStorage.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @author Matter Labs
@@ -29,4 +29,11 @@ abstract contract ProofManagerStorage {
 
     /// @dev USDC contract address used for paying proofs.
     IERC20 internal usdc;
+
+    /// @dev Storage for in-flight proof requests.
+    InFlightRequestsStorageLib.InFlightRequestStorage internal _inFlightRequests;
+
+    uint256 public currentTimeoutAfter;
+
+    uint256 internal unstableReward;
 }
