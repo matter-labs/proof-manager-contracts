@@ -162,6 +162,7 @@ interface IProofManager {
     error MaxRewardOutOfBounds();
 
     error NoPaymentDue();
+    error NoFundsAvailable();
 
     /// @param balance the balance of USDC currently available in the contract
     /// @param requested the amount of USDC that was requested to be transferred as part of claimReward() computation
@@ -208,6 +209,8 @@ interface IProofManager {
     /// @dev Used once per month to direct more proofs to the network that scored best previous month.
     ///     Can be called only by owner.
     function updatePreferredProvingNetwork(ProvingNetwork network) external;
+
+    function updateCurrentTimeoutAfter(uint256 timeoutAfter) external;
 
     /*//////////////////////////////////////////
             Proof Request Management

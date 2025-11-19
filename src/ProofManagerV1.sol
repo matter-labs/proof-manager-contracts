@@ -22,6 +22,8 @@ import {
     L2_ASSET_ROUTER_ADDR
 } from "era-contracts/l1-contracts/contracts/common/L2ContractAddresses.sol";
 
+import { InFlightRequestsStorageLib } from "./store/InFlightRequestsStorage.sol";
+
 /// @author Matter Labs
 /// @custom:security-contact security@matterlabs.dev
 /// @notice Entry point for Proof Manager.
@@ -31,6 +33,7 @@ contract ProofManagerV1 is
     AccessControlUpgradeable,
     ProofManagerStorage
 {
+    using InFlightRequestsStorageLib for InFlightRequestsStorageLib.InFlightRequestStorage;
     bytes32 public constant SUBMITTER_ROLE = keccak256("SUBMITTER_ROLE");
 
     /*//////////////////////////////////////////
@@ -89,7 +92,8 @@ contract ProofManagerV1 is
         address lagrange,
         address _usdc,
         address _submitter,
-        address _admin
+        address _admin,
+        uint256 timeoutAfter
     ) external initializer {
         if (_submitter == address(0)) revert AddressCannotBeZero("submitter");
         if (_admin == address(0)) revert AddressCannotBeZero("admin");
@@ -108,6 +112,9 @@ contract ProofManagerV1 is
 
         _updatePreferredProvingNetwork(ProvingNetwork.None);
         // NOTE: _requestCounter is set to 0 by default.
+
+        _inFlightRequests.addNewTimeoutAfter(timeoutAfter);
+        currentTimeoutAfter = timeoutAfter;
     }
 
     /*////////////////////////
@@ -193,6 +200,14 @@ contract ProofManagerV1 is
             revert MaxRewardOutOfBounds();
         }
 
+        _purge_expired_requests();
+
+        if (!_can_accept_request()) {
+            revert NoFundsAvailable();
+        }
+
+        _inFlightRequests.addPendingAcknowledgment(id, block.timestamp + ACK_TIMEOUT);
+
         ProvingNetwork assignedTo = _nextAssignee();
         bool refused = (assignedTo == ProvingNetwork.None)
             || _provingNetworks[assignedTo].status == ProvingNetworkStatus.Inactive;
@@ -250,6 +265,9 @@ contract ProofManagerV1 is
         } else {
             _proofRequest.status = ProofRequestStatus.ValidationFailed;
         }
+
+        unstableReward -= _proofRequest.requestedReward;
+
         emit ProofValidationResult(
             id.chainId, id.blockNumber, isProofValid, _proofRequest.assignedTo
         );
@@ -274,6 +292,10 @@ contract ProofManagerV1 is
         if (block.timestamp > _proofRequest.submittedAt + ACK_TIMEOUT) {
             revert ProofRequestAcknowledgementDeadlinePassed();
         }
+
+        _inFlightRequests.addAcknowledged(
+            id, _proofRequest.timeoutAfter, block.timestamp + _proofRequest.timeoutAfter
+        );
 
         _proofRequest.status = accepted ? ProofRequestStatus.Committed : ProofRequestStatus.Refused;
 
@@ -301,6 +323,8 @@ contract ProofManagerV1 is
         _proofRequest.proof = proof;
         _proofRequest.requestedReward =
             requestedReward <= _proofRequest.maxReward ? requestedReward : _proofRequest.maxReward;
+
+        unstableReward += _proofRequest.requestedReward;
 
         emit ProofRequestProven(id.chainId, id.blockNumber, proof, _proofRequest.assignedTo);
     }
@@ -358,5 +382,27 @@ contract ProofManagerV1 is
     function _updatePreferredProvingNetwork(ProvingNetwork provingNetwork) private {
         preferredProvingNetwork = provingNetwork;
         emit PreferredProvingNetworkUpdated(provingNetwork);
+    }
+
+    /// @inheritdoc IProofManager
+    function updateCurrentTimeoutAfter(uint256 timeoutAfter) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _inFlightRequests.addNewTimeoutAfter(timeoutAfter);
+        currentTimeoutAfter = timeoutAfter;
+    }
+
+    function _can_accept_request() private view returns (bool) {
+        uint256 balance = usdc.balanceOf(address(this));
+        uint256 obligations = _provingNetworks[ProvingNetwork.Fermah].owedReward
+            + _provingNetworks[ProvingNetwork.Lagrange].owedReward + unstableReward;
+
+        // NOTE: With current mechanism of controling the reward, it is not possible to have more obligations than balance.
+        uint256 free = balance - obligations;
+        uint256 capacity = free / MAX_REWARD;
+        return capacity > _inFlightRequests.size();
+    }
+
+    /// @dev Purges expired requests (block.timestamp > request.expiryTimestamp) from the heap.
+    function _purge_expired_requests() private {
+        _inFlightRequests.purgeExpired(_proofRequests);
     }
 }
