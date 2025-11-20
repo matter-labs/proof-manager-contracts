@@ -398,7 +398,8 @@ contract ProofManagerV1 is
 
     /// @dev Purges expired requests (block.timestamp > request.expiryTimestamp) from the heap.
     function _purge_expired_requests() private {
-        while (!_heap.isEmpty() && _heap.peek().key < block.timestamp) {
+        uint8 maxIterations = 10;
+        while (!_heap.isEmpty() && _heap.peek().key < block.timestamp && maxIterations > 0) {
             MinHeapLib.Node memory node = _heap.extractMin();
             ProofRequest storage _proofRequest = _proofRequests[
                 node.proofRequestIdentifier.chainId
@@ -409,6 +410,7 @@ contract ProofManagerV1 is
             } else if (_proofRequest.status == ProofRequestStatus.Committed) {
                 _proofRequest.status = ProofRequestStatus.TimedOut;
             }
+            maxIterations--;
         }
     }
 }
