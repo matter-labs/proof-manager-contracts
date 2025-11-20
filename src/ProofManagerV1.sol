@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import "./store/ProofManagerStorage.sol";
+import { MinHeapLib } from "./store/MinHeapLib.sol";
 import "./interfaces/IProofManager.sol";
 
 import {
@@ -31,6 +32,8 @@ contract ProofManagerV1 is
     AccessControlUpgradeable,
     ProofManagerStorage
 {
+    using MinHeapLib for MinHeapLib.Heap;
+
     bytes32 public constant SUBMITTER_ROLE = keccak256("SUBMITTER_ROLE");
 
     /*//////////////////////////////////////////
@@ -41,6 +44,11 @@ contract ProofManagerV1 is
     ///     Proving Networks have 2 minutes to commit to proving a proof request once posted on chain.
     ///     Minimizes the proving downtime in case of communication failure.
     uint256 private constant ACK_TIMEOUT = 2 minutes;
+
+    /// @dev Hard-coded constant on maximum timeout after.
+    ///     Proving Networks have min(MAX_TIMEOUT_AFTER, proving_request.timeout) time to prove the request.
+    ///     This guarantees that there will be no proofs accepted after 3 hours has passed since submission.
+    uint256 private constant MAX_TIMEOUT_AFTER = 3 hours;
 
     /// @dev Hard-coded constant on maximum reward amount.
     ///      Constant limits maximum reward that can be provided for a single proof request.
@@ -107,6 +115,7 @@ contract ProofManagerV1 is
         _initializeProvingNetwork(ProvingNetwork.Lagrange, lagrange);
 
         _updatePreferredProvingNetwork(ProvingNetwork.None);
+
         // NOTE: _requestCounter is set to 0 by default.
     }
 
@@ -186,11 +195,17 @@ contract ProofManagerV1 is
         if (_proofRequests[id.chainId][id.blockNumber].submittedAt != 0) {
             revert DuplicatedProofRequest(id.chainId, id.blockNumber);
         }
-        if (params.timeoutAfter <= ACK_TIMEOUT) {
+        if (!(ACK_TIMEOUT <= params.timeoutAfter && params.timeoutAfter <= MAX_TIMEOUT_AFTER)) {
             revert InvalidProofRequestTimeout();
         }
         if (params.maxReward == 0 || params.maxReward > MAX_REWARD) {
             revert MaxRewardOutOfBounds();
+        }
+
+        _purge_expired_requests();
+
+        if (!_can_accept_request()) {
+            revert NoFundsAvailable();
         }
 
         ProvingNetwork assignedTo = _nextAssignee();
@@ -199,6 +214,8 @@ contract ProofManagerV1 is
 
         ProofRequestStatus status =
             refused ? ProofRequestStatus.Refused : ProofRequestStatus.PendingAcknowledgement;
+
+        _heap.addProofRequest(block.timestamp + ACK_TIMEOUT, id);
 
         _proofRequests[id.chainId][id.blockNumber] = ProofRequest({
             proofInputsUrl: params.proofInputsUrl,
@@ -250,6 +267,9 @@ contract ProofManagerV1 is
         } else {
             _proofRequest.status = ProofRequestStatus.ValidationFailed;
         }
+
+        unstableReward -= _proofRequest.requestedReward;
+
         emit ProofValidationResult(
             id.chainId, id.blockNumber, isProofValid, _proofRequest.assignedTo
         );
@@ -274,6 +294,8 @@ contract ProofManagerV1 is
         if (block.timestamp > _proofRequest.submittedAt + ACK_TIMEOUT) {
             revert ProofRequestAcknowledgementDeadlinePassed();
         }
+
+        _heap.replaceAt(id, _proofRequest.submittedAt + _proofRequest.timeoutAfter);
 
         _proofRequest.status = accepted ? ProofRequestStatus.Committed : ProofRequestStatus.Refused;
 
@@ -302,6 +324,9 @@ contract ProofManagerV1 is
         _proofRequest.requestedReward =
             requestedReward <= _proofRequest.maxReward ? requestedReward : _proofRequest.maxReward;
 
+        _heap.remove(id);
+        unstableReward += _proofRequest.requestedReward;
+
         emit ProofRequestProven(id.chainId, id.blockNumber, proof, _proofRequest.assignedTo);
     }
 
@@ -316,9 +341,8 @@ contract ProofManagerV1 is
 
         if (toPay == 0) revert NoPaymentDue();
 
-        uint256 balance = usdc.balanceOf(address(this));
+        // NOTE: In theory, we always should have enough funds to pay the reward as it is controlled by the contract itself.
 
-        if (toPay > balance) revert NotEnoughUsdcFunds(balance, toPay);
         info.owedReward = 0;
 
         bytes32 assetId = INativeTokenVault(L2_NATIVE_TOKEN_VAULT_ADDR).assetId(address(usdc));
@@ -358,5 +382,35 @@ contract ProofManagerV1 is
     function _updatePreferredProvingNetwork(ProvingNetwork provingNetwork) private {
         preferredProvingNetwork = provingNetwork;
         emit PreferredProvingNetworkUpdated(provingNetwork);
+    }
+
+    /// @dev Computes the total amount of in-flight requests and checks if the contract has enough funds to accept the new one
+    function _can_accept_request() private view returns (bool) {
+        uint256 balance = usdc.balanceOf(address(this));
+        uint256 obligations = _provingNetworks[ProvingNetwork.Fermah].owedReward
+            + _provingNetworks[ProvingNetwork.Lagrange].owedReward + unstableReward;
+
+        // NOTE: With current mechanism of controling the reward, it is not possible to have more obligations than balance.
+        uint256 free = balance - obligations;
+        uint256 capacity = free / MAX_REWARD;
+        return capacity > _heap.size();
+    }
+
+    /// @dev Purges expired requests (block.timestamp > request.expiryTimestamp) from the heap.
+    function _purge_expired_requests() private {
+        uint8 maxIterations = 10;
+        while (!_heap.isEmpty() && _heap.peek().key < block.timestamp && maxIterations > 0) {
+            MinHeapLib.Node memory node = _heap.extractMin();
+            ProofRequest storage _proofRequest = _proofRequests[
+                node.proofRequestIdentifier.chainId
+            ][node.proofRequestIdentifier.blockNumber];
+
+            if (_proofRequest.status == ProofRequestStatus.PendingAcknowledgement) {
+                _proofRequest.status = ProofRequestStatus.Unacknowledged;
+            } else if (_proofRequest.status == ProofRequestStatus.Committed) {
+                _proofRequest.status = ProofRequestStatus.TimedOut;
+            }
+            maxIterations--;
+        }
     }
 }
