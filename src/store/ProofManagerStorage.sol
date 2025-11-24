@@ -19,7 +19,7 @@ abstract contract ProofManagerStorage {
         _provingNetworks;
 
     /// @dev Mapping for the source of truth on proof requests. (ProofRequestIdentifier => ProofRequest)
-    mapping(uint256 chainId => mapping(uint256 blockNumber => IProofManager.ProofRequest))
+    mapping(uint256 chainId => mapping(uint256 blockNumber => IProofManager.ProofRequest)) internal
         _proofRequests;
 
     /// @dev Used to round robin proof requests between Proving Networks. Tracks number of requests that have been outsourced to Proving Networks.
