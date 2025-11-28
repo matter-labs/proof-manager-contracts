@@ -209,7 +209,7 @@ contract ProofManagerV1 is
         }
 
         ProvingNetwork assignedTo = _nextAssignee();
-        bool refused = (assignedTo == Pr ovingNetwork.None)
+        bool refused = (assignedTo == ProvingNetwork.None)
             || _provingNetworks[assignedTo].status == ProvingNetworkStatus.Inactive;
 
         ProofRequestStatus status =
@@ -301,8 +301,7 @@ contract ProofManagerV1 is
 
         if (accepted) {
             _heap.replaceAt(id, _proofRequest.submittedAt + _proofRequest.timeoutAfter);
-        }
-        else{
+        } else {
             _heap.remove(id);
         }
 

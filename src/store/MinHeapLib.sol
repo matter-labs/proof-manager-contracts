@@ -190,7 +190,7 @@ library MinHeapLib {
 
         // Restore heap property
         if (idx > 1 && heap.nodes[idx].key < heap.nodes[idx / 2].key) {
-            _siftUp(heap, idx); 
+            _siftUp(heap, idx);
         } else {
             _siftDown(heap, idx);
         }
