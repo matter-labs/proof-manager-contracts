@@ -209,13 +209,15 @@ contract ProofManagerV1 is
         }
 
         ProvingNetwork assignedTo = _nextAssignee();
-        bool refused = (assignedTo == ProvingNetwork.None)
+        bool refused = (assignedTo == Pr ovingNetwork.None)
             || _provingNetworks[assignedTo].status == ProvingNetworkStatus.Inactive;
 
         ProofRequestStatus status =
             refused ? ProofRequestStatus.Refused : ProofRequestStatus.PendingAcknowledgement;
 
-        _heap.addProofRequest(block.timestamp + ACK_TIMEOUT, id);
+        if (status == ProofRequestStatus.PendingAcknowledgement) {
+            _heap.addProofRequest(block.timestamp + ACK_TIMEOUT, id);
+        }
 
         _proofRequests[id.chainId][id.blockNumber] = ProofRequest({
             proofInputsUrl: params.proofInputsUrl,
@@ -295,9 +297,14 @@ contract ProofManagerV1 is
             revert ProofRequestAcknowledgementDeadlinePassed();
         }
 
-        _heap.replaceAt(id, _proofRequest.submittedAt + _proofRequest.timeoutAfter);
-
         _proofRequest.status = accepted ? ProofRequestStatus.Committed : ProofRequestStatus.Refused;
+
+        if (accepted) {
+            _heap.replaceAt(id, _proofRequest.submittedAt + _proofRequest.timeoutAfter);
+        }
+        else{
+            _heap.remove(id);
+        }
 
         emit ProofRequestAcknowledged(
             id.chainId, id.blockNumber, accepted, _proofRequest.assignedTo
@@ -390,7 +397,7 @@ contract ProofManagerV1 is
         uint256 obligations = _provingNetworks[ProvingNetwork.Fermah].owedReward
             + _provingNetworks[ProvingNetwork.Lagrange].owedReward + unstableReward;
 
-        // NOTE: With current mechanism of controling the reward, it is not possible to have more obligations than balance.
+        // NOTE: With current mechanism of controlling the reward, it is not possible to have more obligations than balance.
         uint256 free = balance - obligations;
         uint256 capacity = free / MAX_REWARD;
         return capacity > _heap.size();
