@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {ProofManagerStorage} from "./store/ProofManagerStorage.sol";
+import { ProofManagerStorage } from "./store/ProofManagerStorage.sol";
 import { MinHeapLib } from "./store/MinHeapLib.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/IProofManager.sol";
