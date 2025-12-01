@@ -925,6 +925,7 @@ contract ProofManagerV1Test is Test {
     }
 
     function testRequestRejectedIfNoFundsAvailable() public {
+        // 2 out of 4 requests will get refused, so only at 18 requests we will get 10 in-flight ones
         for (uint256 i = 0; i < 18; i++) {
             submitDefaultProofRequest(1, i + 1);
         }
