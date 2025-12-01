@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import "./store/ProofManagerStorage.sol";
+import {ProofManagerStorage} from "./store/ProofManagerStorage.sol";
 import { MinHeapLib } from "./store/MinHeapLib.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/IProofManager.sol";
 
 import {
@@ -47,8 +48,8 @@ contract ProofManagerV1 is
 
     /// @dev Hard-coded constant on maximum timeout after.
     ///     Proving Networks have min(MAX_TIMEOUT_AFTER, proving_request.timeout) time to prove the request.
-    ///     This guarantees that there will be no proofs accepted after 3 hours has passed since submission.
-    uint256 private constant MAX_TIMEOUT_AFTER = 3 hours;
+    ///     This guarantees that there will be no proofs accepted after 2 hours has passed since submission.
+    uint256 private constant MAX_TIMEOUT_AFTER = 2 hours;
 
     /// @dev Hard-coded constant on maximum reward amount.
     ///      Constant limits maximum reward that can be provided for a single proof request.
@@ -115,6 +116,8 @@ contract ProofManagerV1 is
         _initializeProvingNetwork(ProvingNetwork.Lagrange, lagrange);
 
         _updatePreferredProvingNetwork(ProvingNetwork.None);
+
+        assert(MAX_REWARD != 0);
 
         // NOTE: _requestCounter is set to 0 by default.
     }
@@ -195,7 +198,7 @@ contract ProofManagerV1 is
         if (_proofRequests[id.chainId][id.blockNumber].submittedAt != 0) {
             revert DuplicatedProofRequest(id.chainId, id.blockNumber);
         }
-        if (!(ACK_TIMEOUT <= params.timeoutAfter && params.timeoutAfter <= MAX_TIMEOUT_AFTER)) {
+        if (!(ACK_TIMEOUT < params.timeoutAfter && params.timeoutAfter <= MAX_TIMEOUT_AFTER)) {
             revert InvalidProofRequestTimeout();
         }
         if (params.maxReward == 0 || params.maxReward > MAX_REWARD) {
