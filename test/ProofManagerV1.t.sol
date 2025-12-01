@@ -925,13 +925,13 @@ contract ProofManagerV1Test is Test {
     }
 
     function testRequestRejectedIfNoFundsAvailable() public {
-        for (uint256 i = 0; i < 10; i++) {
+        for (uint256 i = 0; i < 18; i++) {
             submitDefaultProofRequest(1, i + 1);
         }
 
         vm.expectRevert(abi.encodeWithSelector(IProofManager.NoFundsAvailable.selector));
 
-        submitDefaultProofRequest(1, 11);
+        submitDefaultProofRequest(1, 19);
     }
 
     /*//////////////////////////////////////////
