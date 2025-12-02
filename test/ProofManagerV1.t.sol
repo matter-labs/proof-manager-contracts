@@ -46,7 +46,7 @@ contract ProofManagerV1Test is Test {
 
         proofManager.initialize(fermah, lagrange, address(usdc), submitter, owner);
 
-        usdc.mint(address(proofManager), 1_000_000);
+        usdc.mint(address(proofManager), 50_000_000);
     }
 
     /*//////////////////////////////////////////
@@ -108,6 +108,22 @@ contract ProofManagerV1Test is Test {
         vm.prank(owner);
 
         _proofManager.initialize(fermah, lagrange, address(this), submitter, owner);
+    }
+
+    /// @dev Do not allow zero address for admin.
+    function testInitFailsWithZeroAdminAddress() public {
+        ProofManagerV1 impl = new ProofManagerV1();
+        ProxyAdmin admin = new ProxyAdmin(owner);
+
+        TransparentUpgradeableProxy proxy =
+            new TransparentUpgradeableProxy(address(impl), address(admin), "");
+
+        ProofManagerV1 _proofManager = ProofManagerV1(address(proxy));
+        vm.prank(owner);
+
+        vm.expectRevert(abi.encodeWithSelector(IProofManager.AddressCannotBeZero.selector, "admin"));
+
+        _proofManager.initialize(fermah, lagrange, address(usdc), submitter, address(0));
     }
 
     /// @dev Do not allow zero address for submitter.
@@ -405,6 +421,48 @@ contract ProofManagerV1Test is Test {
                 maxReward: 0
             })
         );
+    }
+
+    function testPurgeNotAcknowledgedRequestsOnSubmit() public {
+        submitDefaultProofRequest(1, 1);
+
+        IProofManager.ProofRequestIdentifier memory id =
+            IProofManager.ProofRequestIdentifier({ chainId: 1, blockNumber: 1 });
+
+        {
+            (IProofManager.ProofRequest memory rBefore) = proofManager.proofRequest(id);
+            assertEq(
+                uint8(rBefore.status),
+                uint8(IProofManager.ProofRequestStatus.PendingAcknowledgement)
+            );
+        }
+
+        vm.warp(block.timestamp + 3 minutes);
+
+        submitDefaultProofRequest(1, 2);
+
+        {
+            (IProofManager.ProofRequest memory rAfter) = proofManager.proofRequest(id);
+            assertEq(uint8(rAfter.status), uint8(IProofManager.ProofRequestStatus.Unacknowledged));
+        }
+    }
+
+    function testPurgeAcknowledgedRequestsOnSubmit() public {
+        submitDefaultProofRequest(1, 1);
+        vm.prank(fermah);
+
+        IProofManager.ProofRequestIdentifier memory id =
+            IProofManager.ProofRequestIdentifier({ chainId: 1, blockNumber: 1 });
+
+        proofManager.acknowledgeProofRequest(id, true);
+
+        vm.warp(block.timestamp + 3 hours);
+        submitDefaultProofRequest(1, 2);
+
+        {
+            (IProofManager.ProofRequest memory rAfter) = proofManager.proofRequest(id);
+            assertEq(uint8(rAfter.status), uint8(IProofManager.ProofRequestStatus.TimedOut));
+        }
     }
 
     /// @dev Happy path for proof assignment logic.
@@ -866,34 +924,15 @@ contract ProofManagerV1Test is Test {
         proofManager.claimReward();
     }
 
-    /// @dev Reverts if there are not enough funds.
-    function testClaimRewardRevertsIfNotEnoughFunds() public {
-        vm.prank(submitter);
-        proofManager.submitProofRequest(
-            IProofManager.ProofRequestIdentifier(1, 1),
-            IProofManager.ProofRequestParams({
-                proofInputsUrl: "https://console.google.com/buckets/...",
-                protocolMajor: 0,
-                protocolMinor: 27,
-                protocolPatch: 0,
-                timeoutAfter: 3600,
-                maxReward: 5_000_000
-            })
-        );
-        vm.prank(fermah);
-        proofManager.acknowledgeProofRequest(IProofManager.ProofRequestIdentifier(1, 1), true);
-        vm.prank(fermah);
-        proofManager.submitProof(
-            IProofManager.ProofRequestIdentifier(1, 1), bytes("such proof much wow"), 1_000_001
-        );
-        vm.prank(submitter);
-        proofManager.submitProofValidationResult(IProofManager.ProofRequestIdentifier(1, 1), true);
+    function testRequestRejectedIfNoFundsAvailable() public {
+        // 2 out of 4 requests will get refused, so only at 18 requests we will get 10 in-flight ones
+        for (uint256 i = 0; i < 18; i++) {
+            submitDefaultProofRequest(1, i + 1);
+        }
 
-        vm.expectRevert(
-            abi.encodeWithSelector(IProofManager.NotEnoughUsdcFunds.selector, 1_000_000, 1_000_001)
-        );
-        vm.prank(fermah);
-        proofManager.claimReward();
+        vm.expectRevert(abi.encodeWithSelector(IProofManager.NoFundsAvailable.selector));
+
+        submitDefaultProofRequest(1, 19);
     }
 
     /*//////////////////////////////////////////

@@ -30,9 +30,11 @@ interface IProofManager {
     /// @param PendingAcknowledgement The state in which any request starts, waiting for the Proving Network to acknowledge it.
     /// @param Committed Proving Network has acknowledged the request and committed to prove it.
     /// @param Refused Proving Network has refused to prove the request (or the Proving Network is inactive).
-    /// @param Unacknowledged Proving Network has not acknowledged the request before the acknowledgement timeout has passed (note, this is only visible in the getter, storage is not modified).
+    /// @param Unacknowledged Proving Network has not acknowledged the request before the acknowledgement timeout has passed
+    ///     (note, this is only visible in the getter, storage is modified only when the request is purged).
     /// @param Proven Proving Network has proven the request and is waiting for validation.
-    /// @param TimedOut Proving Network has not proven the request before the proving timeout has passed (note, this is only visible in the getter, storage is not modified).
+    /// @param TimedOut Proving Network has not proven the request before the proving timeout has passed
+    ///     (note, this is only visible in the getter, storage is modified only when the request is purged).
     /// @param Validated The proof has been validated on settlement layer and is ready due for payment.
     /// @param ValidationFailed The proof failed validation on settlement layer and will not be paid (impact Proving Network score).
     enum ProofRequestStatus {
@@ -163,9 +165,8 @@ interface IProofManager {
 
     error NoPaymentDue();
 
-    /// @param balance the balance of USDC currently available in the contract
-    /// @param requested the amount of USDC that was requested to be transferred as part of claimReward() computation
-    error NotEnoughUsdcFunds(uint256 balance, uint256 requested);
+    /// @dev Thrown when the contract does not have enough funds to accept a new request.
+    error NoFundsAvailable();
 
     /// @param sender the address that tried to call the function
     error OnlyProvingNetworkAllowed(address sender);
@@ -197,7 +198,10 @@ interface IProofManager {
     //////////////////////////////////////////*/
 
     /// @dev Useful for proving network key rotation or key compromise. Can be called only by owner and Proving Network cannot be None.
-    ///     NOTE: In case of contract key compromise, the maximum amount of USDC that can be stolen is 50k (operations will not fund it with more, as agreed with Proving Networks).
+    ///     NOTE: In case of contract key compromise, the maximum amount of USDC that can be stolen is 50k
+    ///     (operations will not fund it with more, as agreed with Proving Networks).
+    /// @param network Proving Network to update.
+    /// @param addr New address for the Proving Network.
     function updateProvingNetworkAddress(ProvingNetwork network, address addr) external;
 
     /// @dev Useful for Proving Network outage (Active to Inactive) or recovery (Inactive to Active).
@@ -221,7 +225,10 @@ interface IProofManager {
     ) external;
 
     /// @dev Submits the result of proof validation on settlement layer. Can be called only by the submitter.
-    ///     NOTE: Valid proofs are due for payment (Proving Network needs to call `claimReward()`), whilst invalid proofs are not (and Proving Network is penalized in monthly Preferred Proving Network assignment).
+    ///     NOTE: Valid proofs are due for payment (Proving Network needs to call `claimReward()`), whilst invalid proofs are not
+    ///     (and Proving Network is penalized in monthly Preferred Proving Network assignment).
+    /// @param id Proof request identifier (chainId, blockNumber).
+    /// @param isProofValid Whether the proof is valid.
     function submitProofValidationResult(ProofRequestIdentifier calldata id, bool isProofValid)
         external;
 
@@ -230,7 +237,10 @@ interface IProofManager {
     //////////////////////////////////////////*/
 
     /// @dev Acknowledges a proof request. The proving network can either commit to prove or refuse (due to price, availability, etc).
-    ///     Can be called only by the Proving Network assigned to the proof request, on proof requests that exist and are in PendingAcknowledgement status.
+    ///     Can be called only by the Proving Network assigned to the proof request, on proof requests that exist
+    ///     and are in PendingAcknowledgement status.
+    /// @param id Proof request identifier (chainId, blockNumber).
+    /// @param accept Whether the proof request is accepted (true) or refused (false).
     function acknowledgeProofRequest(ProofRequestIdentifier calldata id, bool accept) external;
 
     /// @dev Submit proof for proof request.
