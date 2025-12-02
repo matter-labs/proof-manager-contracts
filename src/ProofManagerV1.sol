@@ -117,7 +117,6 @@ contract ProofManagerV1 is
 
         _updatePreferredProvingNetwork(ProvingNetwork.None);
 
-
         // NOTE: Just a sanity check, if MAX_REWARD is 0, the contract would be unable to accept any requests, so if it gets funded,
         // the funds will get locked forever.
         assert(MAX_REWARD != 0);
@@ -276,7 +275,7 @@ contract ProofManagerV1 is
             _proofRequest.status = ProofRequestStatus.ValidationFailed;
         }
 
-        unstableReward -= _proofRequest.requestedReward;
+        potentialFutureReward -= _proofRequest.requestedReward;
 
         emit ProofValidationResult(
             id.chainId, id.blockNumber, isProofValid, _proofRequest.assignedTo
@@ -337,7 +336,7 @@ contract ProofManagerV1 is
             requestedReward <= _proofRequest.maxReward ? requestedReward : _proofRequest.maxReward;
 
         _heap.remove(id);
-        unstableReward += _proofRequest.requestedReward;
+        potentialFutureReward += _proofRequest.requestedReward;
 
         emit ProofRequestProven(id.chainId, id.blockNumber, proof, _proofRequest.assignedTo);
     }
@@ -400,7 +399,7 @@ contract ProofManagerV1 is
     function _can_accept_request() private view returns (bool) {
         uint256 balance = usdc.balanceOf(address(this));
         uint256 obligations = _provingNetworks[ProvingNetwork.Fermah].owedReward
-            + _provingNetworks[ProvingNetwork.Lagrange].owedReward + unstableReward;
+            + _provingNetworks[ProvingNetwork.Lagrange].owedReward + potentialFutureReward;
 
         // NOTE: With current mechanism of controlling the reward, it is not possible to have more obligations than balance.
         uint256 free = balance - obligations;
