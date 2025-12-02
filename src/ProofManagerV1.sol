@@ -117,6 +117,9 @@ contract ProofManagerV1 is
 
         _updatePreferredProvingNetwork(ProvingNetwork.None);
 
+
+        // NOTE: Just a sanity check, if MAX_REWARD is 0, the contract would be unable to accept any requests, so if it gets funded,
+        // the funds will get locked forever.
         assert(MAX_REWARD != 0);
 
         // NOTE: _requestCounter is set to 0 by default.
