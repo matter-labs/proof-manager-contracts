@@ -81,7 +81,7 @@ library MinHeapLib {
         IProofManager.ProofRequestIdentifier memory proofRequestIdentifier
     ) internal {
         // Ensure sentinel at index 0
-        if (isEmpty(heap)) {
+        if (heap.nodes.length == 0) {
             heap.nodes.push(); // empty slot at index 0
         }
 
