@@ -40,6 +40,11 @@ if [ "$NETWORK" == "ERA" ]; then
         --private-key $PRIVATE_KEY \
         --with-gas-price $GAS_PRICE \
         --slow \
+        --skip-simulation \
+        --retries 10 \
+        --delay 8 \
+        --verify \
+        --verifier zksync --verifier-url "https://zksync2-mainnet-explorer.zksync.io/contract_verification" \
         -vvvv
 elif [ "$NETWORK" == "ETH" ]; then
     forge script scripts/deployment/DeployProofManagerV1.s.sol \

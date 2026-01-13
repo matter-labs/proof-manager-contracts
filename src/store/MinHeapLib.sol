@@ -134,7 +134,7 @@ library MinHeapLib {
     function remove(
         Heap storage heap,
         IProofManager.ProofRequestIdentifier memory proofRequestIdentifier
-    ) public {
+    ) internal {
         uint256 idx = heap.heapIndexes[
             proofRequestIdentifier.chainId
         ][proofRequestIdentifier.blockNumber];
@@ -180,7 +180,7 @@ library MinHeapLib {
         Heap storage heap,
         IProofManager.ProofRequestIdentifier memory proofRequestIdentifier,
         uint256 newKey
-    ) public {
+    ) internal {
         uint256 idx = heap.heapIndexes[
             proofRequestIdentifier.chainId
         ][proofRequestIdentifier.blockNumber];
