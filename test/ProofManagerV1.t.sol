@@ -822,7 +822,7 @@ contract ProofManagerV1Test is Test {
 
         vm.expectEmit(true, true, false, true);
         emit IProofManager.ProofRequestProven(
-            1, 1, bytes("such proof much wow"), IProofManager.ProvingNetwork.Fermah
+            1, 1, bytes("such proof much wow"), IProofManager.ProvingNetwork.Fermah, 3e6
         );
         vm.prank(fermah);
         proofManager.submitProof(
@@ -844,7 +844,7 @@ contract ProofManagerV1Test is Test {
 
         vm.expectEmit(true, true, false, true);
         emit IProofManager.ProofRequestProven(
-            1, 1, bytes("such proof much wow"), IProofManager.ProvingNetwork.Fermah
+            1, 1, bytes("such proof much wow"), IProofManager.ProvingNetwork.Fermah, 4e6
         );
         vm.prank(fermah);
         proofManager.submitProof(

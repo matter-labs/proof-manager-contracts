@@ -132,7 +132,11 @@ interface IProofManager {
 
     /// @dev Emitted when a proof is submitted. Used by sequencers to extract the proof (and later for Proving Networks benchmarking).
     event ProofRequestProven(
-        uint256 indexed chainId, uint256 indexed blockNumber, bytes proof, ProvingNetwork assignedTo
+        uint256 indexed chainId,
+        uint256 indexed blockNumber,
+        bytes proof,
+        ProvingNetwork assignedTo,
+        uint256 requestedReward
     );
 
     /// @dev Emitted when Proving Network withdraws funds. Useful for troubleshooting.
