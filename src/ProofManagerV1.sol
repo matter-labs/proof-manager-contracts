@@ -338,7 +338,13 @@ contract ProofManagerV1 is
         _heap.remove(id);
         potentialFutureReward += _proofRequest.requestedReward;
 
-        emit ProofRequestProven(id.chainId, id.blockNumber, proof, _proofRequest.assignedTo, _proofRequest.requestedReward);
+        emit ProofRequestProven(
+            id.chainId,
+            id.blockNumber,
+            proof,
+            _proofRequest.assignedTo,
+            _proofRequest.requestedReward
+        );
     }
 
     /// @inheritdoc IProofManager
