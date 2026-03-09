@@ -1081,6 +1081,52 @@ contract ProofManagerV1Test is Test {
         });
     }
 
+    /*//////////////////////////////////////////
+            Admin Token Withdrawal
+    //////////////////////////////////////////*/
+
+    function test_withdraw_partialAmount() public {
+        uint256 initialBalance = usdc.balanceOf(address(proofManager));
+        uint256 withdrawAmount = 10_000_000; // 10 USDC
+
+        vm.expectEmit(true, true, false, true);
+        emit IProofManager.FundsWithdrawn(address(usdc), owner, withdrawAmount);
+
+        vm.prank(owner);
+        proofManager.withdraw(address(usdc), withdrawAmount);
+
+        assertEq(usdc.balanceOf(owner), withdrawAmount, "owner should receive withdrawn amount");
+        assertEq(
+            usdc.balanceOf(address(proofManager)),
+            initialBalance - withdrawAmount,
+            "contract balance should decrease"
+        );
+    }
+
+    function test_withdraw_fullBalance() public {
+        uint256 fullBalance = usdc.balanceOf(address(proofManager));
+
+        vm.prank(owner);
+        proofManager.withdraw(address(usdc), fullBalance);
+
+        assertEq(usdc.balanceOf(address(proofManager)), 0, "contract should be empty");
+        assertEq(usdc.balanceOf(owner), fullBalance, "owner should have full balance");
+    }
+
+    function test_withdraw_revertsIfNotAdmin() public {
+        expectAccessRevert(externalAddr, owner_role);
+        vm.prank(externalAddr);
+        proofManager.withdraw(address(usdc), 1_000_000);
+    }
+
+    function test_withdraw_revertsIfAmountExceedsBalance() public {
+        uint256 balance = usdc.balanceOf(address(proofManager));
+
+        vm.expectRevert(stdError.arithmeticError);
+        vm.prank(owner);
+        proofManager.withdraw(address(usdc), balance + 1);
+    }
+
     /// @dev Expects default revert for ownable contract.
     function expectAccessRevert(address caller, bytes32 neededRole) private {
         vm.expectRevert(

@@ -142,6 +142,9 @@ interface IProofManager {
     /// @dev Emitted when Proving Network withdraws funds. Useful for troubleshooting.
     event RewardClaimed(ProvingNetwork indexed by, uint256 amount);
 
+    /// @dev Emitted when admin withdraws an ERC20 token from the contract.
+    event FundsWithdrawn(address indexed token, address indexed by, uint256 amount);
+
     /// @dev Emitted when Proving Network address is updated. Useful for transparency and catching unintended updates.
     event ProvingNetworkAddressUpdated(ProvingNetwork indexed provingNetwork, address addr);
 
@@ -194,8 +197,6 @@ interface IProofManager {
     error EmptyProof();
 
     error ProvingNetworkCannotBeNone();
-
-    error UsdcTransferFailed();
 
     /*//////////////////////////////////////////
             Proving Network Management
@@ -258,4 +259,9 @@ interface IProofManager {
     /// @dev Claim rewards (in USDC) for already validated proofs.
     ///     Can be called only by the Proving Network, assuming there is a reward due.
     function claimReward() external;
+
+    /// @dev Withdraws any ERC20 token from the contract to the caller. Can only be called by admin.
+    /// @param token ERC20 token address to withdraw.
+    /// @param amount Amount to withdraw (in token's native decimals).
+    function withdraw(address token, uint256 amount) external;
 }

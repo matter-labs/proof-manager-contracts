@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import { ProofManagerStorage } from "./store/ProofManagerStorage.sol";
 import { MinHeapLib } from "./store/MinHeapLib.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IProofManager } from "./interfaces/IProofManager.sol";
 
 import {
@@ -34,6 +35,7 @@ contract ProofManagerV1 is
     ProofManagerStorage
 {
     using MinHeapLib for MinHeapLib.Heap;
+    using SafeERC20 for IERC20;
 
     bytes32 public constant SUBMITTER_ROLE = keccak256("SUBMITTER_ROLE");
 
@@ -186,6 +188,12 @@ contract ProofManagerV1 is
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         _updatePreferredProvingNetwork(provingNetwork);
+    }
+
+    /// @inheritdoc IProofManager
+    function withdraw(address token, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        IERC20(token).safeTransfer(msg.sender, amount);
+        emit FundsWithdrawn(token, msg.sender, amount);
     }
 
     /*//////////////////////////////////////////
