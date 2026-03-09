@@ -189,9 +189,9 @@ contract ProofManagerV1 is
     }
 
     /// @inheritdoc IProofManager
-    function withdrawUsdc(uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (!usdc.transfer(msg.sender, amount)) revert UsdcTransferFailed();
-        emit UsdcWithdrawn(msg.sender, amount);
+    function withdraw(address token, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (!IERC20(token).transfer(msg.sender, amount)) revert UsdcTransferFailed();
+        emit FundsWithdrawn(token, msg.sender, amount);
     }
 
     /*//////////////////////////////////////////

@@ -1082,18 +1082,18 @@ contract ProofManagerV1Test is Test {
     }
 
     /*//////////////////////////////////////////
-            Admin USDC Withdrawal
+            Admin Token Withdrawal
     //////////////////////////////////////////*/
 
-    function test_withdrawUsdc_partialAmount() public {
+    function test_withdraw_partialAmount() public {
         uint256 initialBalance = usdc.balanceOf(address(proofManager));
         uint256 withdrawAmount = 10_000_000; // 10 USDC
 
-        vm.expectEmit(true, false, false, true);
-        emit IProofManager.UsdcWithdrawn(owner, withdrawAmount);
+        vm.expectEmit(true, true, false, true);
+        emit IProofManager.FundsWithdrawn(address(usdc), owner, withdrawAmount);
 
         vm.prank(owner);
-        proofManager.withdrawUsdc(withdrawAmount);
+        proofManager.withdraw(address(usdc), withdrawAmount);
 
         assertEq(usdc.balanceOf(owner), withdrawAmount, "owner should receive withdrawn amount");
         assertEq(
@@ -1103,28 +1103,28 @@ contract ProofManagerV1Test is Test {
         );
     }
 
-    function test_withdrawUsdc_fullBalance() public {
+    function test_withdraw_fullBalance() public {
         uint256 fullBalance = usdc.balanceOf(address(proofManager));
 
         vm.prank(owner);
-        proofManager.withdrawUsdc(fullBalance);
+        proofManager.withdraw(address(usdc), fullBalance);
 
         assertEq(usdc.balanceOf(address(proofManager)), 0, "contract should be empty");
         assertEq(usdc.balanceOf(owner), fullBalance, "owner should have full balance");
     }
 
-    function test_withdrawUsdc_revertsIfNotAdmin() public {
+    function test_withdraw_revertsIfNotAdmin() public {
         vm.prank(externalAddr);
         vm.expectRevert();
-        proofManager.withdrawUsdc(1_000_000);
+        proofManager.withdraw(address(usdc), 1_000_000);
     }
 
-    function test_withdrawUsdc_revertsIfAmountExceedsBalance() public {
+    function test_withdraw_revertsIfAmountExceedsBalance() public {
         uint256 balance = usdc.balanceOf(address(proofManager));
 
         vm.prank(owner);
         vm.expectRevert();
-        proofManager.withdrawUsdc(balance + 1);
+        proofManager.withdraw(address(usdc), balance + 1);
     }
 
     /// @dev Expects default revert for ownable contract.
