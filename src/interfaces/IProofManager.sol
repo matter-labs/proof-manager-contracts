@@ -198,8 +198,6 @@ interface IProofManager {
 
     error ProvingNetworkCannotBeNone();
 
-    error UsdcTransferFailed();
-
     /*//////////////////////////////////////////
             Proving Network Management
     //////////////////////////////////////////*/

@@ -1114,16 +1114,16 @@ contract ProofManagerV1Test is Test {
     }
 
     function test_withdraw_revertsIfNotAdmin() public {
+        expectAccessRevert(externalAddr, owner_role);
         vm.prank(externalAddr);
-        vm.expectRevert();
         proofManager.withdraw(address(usdc), 1_000_000);
     }
 
     function test_withdraw_revertsIfAmountExceedsBalance() public {
         uint256 balance = usdc.balanceOf(address(proofManager));
 
+        vm.expectRevert(stdError.arithmeticError);
         vm.prank(owner);
-        vm.expectRevert();
         proofManager.withdraw(address(usdc), balance + 1);
     }
 
