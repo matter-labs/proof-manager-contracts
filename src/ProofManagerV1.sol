@@ -188,6 +188,12 @@ contract ProofManagerV1 is
         _updatePreferredProvingNetwork(provingNetwork);
     }
 
+    /// @inheritdoc IProofManager
+    function withdrawUsdc(uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (!usdc.transfer(msg.sender, amount)) revert UsdcTransferFailed();
+        emit UsdcWithdrawn(msg.sender, amount);
+    }
+
     /*//////////////////////////////////////////
             Proof Request Management
     //////////////////////////////////////////*/
