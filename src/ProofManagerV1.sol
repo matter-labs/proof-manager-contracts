@@ -53,11 +53,6 @@ contract ProofManagerV1 is
     ///     This guarantees that there will be no proofs accepted after 2 hours has passed since submission.
     uint256 private constant MAX_TIMEOUT_AFTER = 2 hours;
 
-    /// @dev Hard-coded constant on maximum reward amount.
-    ///      Constant limits maximum reward that can be provided for a single proof request.
-    ///      Safe capacity for the reward is 5 USDC per proof, although the actual value is lower.
-    uint256 private constant MAX_REWARD = 5_000_000;
-
     /*//////////////////////////////////////////
                     Modifiers
     //////////////////////////////////////////*/
@@ -119,11 +114,15 @@ contract ProofManagerV1 is
 
         _updatePreferredProvingNetwork(ProvingNetwork.None);
 
-        // NOTE: Just a sanity check, if MAX_REWARD is 0, the contract would be unable to accept any requests, so if it gets funded,
-        // the funds will get locked forever.
-        assert(MAX_REWARD != 0);
-
         // NOTE: _requestCounter is set to 0 by default.
+        // NOTE: maxReward is set in initializeV2 to avoid disrupting storage layout during upgrade.
+    }
+
+    /// @dev Called once during the upgrade from V1 to V2 to initialize the configurable maxReward.
+    ///      Uses reinitializer(2) so it can only run once and cannot replay the original initializer.
+    ///      Seeded with the value that was previously hard-coded as a constant (5 USDC).
+    function initializeV2() external reinitializer(2) {
+        _updateMaxReward(5_000_000);
     }
 
     /*////////////////////////
@@ -191,6 +190,11 @@ contract ProofManagerV1 is
     }
 
     /// @inheritdoc IProofManager
+    function updateMaxReward(uint256 newMaxReward) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _updateMaxReward(newMaxReward);
+    }
+
+    /// @inheritdoc IProofManager
     function withdraw(address token, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
         IERC20(token).safeTransfer(msg.sender, amount);
         emit FundsWithdrawn(token, msg.sender, amount);
@@ -211,7 +215,7 @@ contract ProofManagerV1 is
         if (!(ACK_TIMEOUT < params.timeoutAfter && params.timeoutAfter <= MAX_TIMEOUT_AFTER)) {
             revert InvalidProofRequestTimeout();
         }
-        if (params.maxReward == 0 || params.maxReward > MAX_REWARD) {
+        if (params.maxReward == 0 || params.maxReward > maxReward) {
             revert MaxRewardOutOfBounds();
         }
 
@@ -409,6 +413,14 @@ contract ProofManagerV1 is
         emit PreferredProvingNetworkUpdated(provingNetwork);
     }
 
+    function _updateMaxReward(uint256 newMaxReward) private {
+        // Guard against accidentally setting maxReward to 0, which would lock any pre-funded
+        // USDC in the contract (no requests could be accepted, so the funds would be unspendable).
+        if (newMaxReward == 0) revert MaxRewardOutOfBounds();
+        maxReward = newMaxReward;
+        emit MaxRewardUpdated(newMaxReward);
+    }
+
     /// @dev Computes the total amount of in-flight requests and checks if the contract has enough funds to accept the new one
     function _can_accept_request() private view returns (bool) {
         uint256 balance = usdc.balanceOf(address(this));
@@ -417,7 +429,7 @@ contract ProofManagerV1 is
 
         // NOTE: With current mechanism of controlling the reward, it is not possible to have more obligations than balance.
         uint256 free = balance - obligations;
-        uint256 capacity = free / MAX_REWARD;
+        uint256 capacity = free / maxReward;
         return capacity > _heap.size();
     }
 

@@ -45,6 +45,7 @@ contract ProofManagerV1Test is Test {
         vm.prank(owner);
 
         proofManager.initialize(fermah, lagrange, address(usdc), submitter, owner);
+        proofManager.initializeV2();
 
         usdc.mint(address(proofManager), 50_000_000);
     }
@@ -186,6 +187,36 @@ contract ProofManagerV1Test is Test {
     }
 
     /*//////////////////////////////////////////
+            1.II. V2 Upgrade
+    //////////////////////////////////////////*/
+
+    /// @dev initializeV2 seeds maxReward with the previously hard-coded value (5 USDC) and emits the event.
+    function testInitializeV2_seedsMaxReward() public {
+        ProofManagerV1Harness impl = new ProofManagerV1Harness();
+        ProxyAdmin admin = new ProxyAdmin(owner);
+        TransparentUpgradeableProxy proxy =
+            new TransparentUpgradeableProxy(address(impl), address(admin), "");
+        ProofManagerV1Harness _proofManager = ProofManagerV1Harness(address(proxy));
+
+        vm.prank(owner);
+        _proofManager.initialize(fermah, lagrange, address(usdc), submitter, owner);
+
+        vm.expectEmit(false, false, false, true);
+        emit IProofManager.MaxRewardUpdated(5_000_000);
+
+        _proofManager.initializeV2();
+
+        assertEq(_proofManager.getMaxReward(), 5_000_000, "maxReward should be seeded to 5 USDC");
+    }
+
+    /// @dev initializeV2 is guarded by reinitializer(2) and cannot be called more than once.
+    function testInitializeV2_cannotBeCalledTwice() public {
+        // proofManager in setUp already had initializeV2 called once.
+        vm.expectRevert();
+        proofManager.initializeV2();
+    }
+
+    /*//////////////////////////////////////////
         2. Proving Network Management
     //////////////////////////////////////////*/
 
@@ -308,6 +339,66 @@ contract ProofManagerV1Test is Test {
         vm.prank(externalAddr);
         expectAccessRevert(externalAddr, owner_role);
         proofManager.updatePreferredProvingNetwork(IProofManager.ProvingNetwork.Fermah);
+    }
+
+    /*//////////////////////////////////////////
+            2.IV. Update Max Reward
+    //////////////////////////////////////////*/
+
+    /// @dev Happy path: admin raises the cap and a proof request that was previously over-limit is now accepted.
+    function testUpdateMaxReward() public {
+        uint256 newCap = 8_000_000;
+
+        vm.expectEmit(false, false, false, true);
+        emit IProofManager.MaxRewardUpdated(newCap);
+
+        vm.prank(owner);
+        proofManager.updateMaxReward(newCap);
+
+        assertEq(proofManager.getMaxReward(), newCap, "maxReward should reflect the new cap");
+
+        // A request offering more than the old 5 USDC cap is now valid.
+        vm.prank(submitter);
+        proofManager.submitProofRequest(
+            IProofManager.ProofRequestIdentifier(1, 1),
+            IProofManager.ProofRequestParams({
+                proofInputsUrl: "https://console.google.com/buckets/...",
+                protocolMajor: 0,
+                protocolMinor: 27,
+                protocolPatch: 0,
+                timeoutAfter: 3600,
+                maxReward: 7_000_000
+            })
+        );
+    }
+
+    /// @dev Lowering the cap blocks proof requests that exceed the new, tighter limit.
+    function testUpdateMaxReward_lowerCapEnforced() public {
+        uint256 newCap = 2_000_000;
+
+        vm.prank(owner);
+        proofManager.updateMaxReward(newCap);
+
+        // defaultProofRequestParams uses 4e6 which is now over the new cap.
+        vm.expectRevert(abi.encodeWithSelector(IProofManager.MaxRewardOutOfBounds.selector));
+        vm.prank(submitter);
+        proofManager.submitProofRequest(
+            IProofManager.ProofRequestIdentifier(1, 1), defaultProofRequestParams()
+        );
+    }
+
+    /// @dev Non-admin cannot change the max reward cap.
+    function testUpdateMaxReward_nonOwnerReverts() public {
+        vm.prank(externalAddr);
+        expectAccessRevert(externalAddr, owner_role);
+        proofManager.updateMaxReward(1_000_000);
+    }
+
+    /// @dev Setting maxReward to zero is rejected to prevent locking pre-funded USDC in the contract.
+    function testUpdateMaxReward_cannotSetToZero() public {
+        vm.expectRevert(abi.encodeWithSelector(IProofManager.MaxRewardOutOfBounds.selector));
+        vm.prank(owner);
+        proofManager.updateMaxReward(0);
     }
 
     /*//////////////////////////////////////////

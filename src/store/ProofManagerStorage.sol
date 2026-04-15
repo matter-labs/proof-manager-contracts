@@ -38,4 +38,8 @@ abstract contract ProofManagerStorage {
 
     /// @dev Potential future reward - amount of funds for proof requests that were proven but not validated yet.
     uint256 internal potentialFutureReward;
+
+    /// @dev Maximum reward that can be offered for a single proof request. Configurable by admin.
+    ///      Stored as a variable (not a constant) so it can be adjusted without a contract upgrade.
+    uint256 internal maxReward;
 }

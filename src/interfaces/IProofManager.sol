@@ -157,6 +157,9 @@ interface IProofManager {
     /// @dev Emitted when Proving Network is updated (once per month). Useful for transparency and troubleshooting.
     event PreferredProvingNetworkUpdated(ProvingNetwork indexed provingNetwork);
 
+    /// @dev Emitted when admin updates the maximum reward cap.
+    event MaxRewardUpdated(uint256 newMaxReward);
+
     /*//////////////////////////////////////////
                       Errors
     //////////////////////////////////////////*/
@@ -217,6 +220,10 @@ interface IProofManager {
     /// @dev Used once per month to direct more proofs to the network that scored best previous month.
     ///     Can be called only by owner.
     function updatePreferredProvingNetwork(ProvingNetwork network) external;
+
+    /// @dev Updates the maximum reward cap for a single proof request. Can be called only by admin.
+    /// @param newMaxReward New maximum reward value (in USDC with 6 decimals).
+    function updateMaxReward(uint256 newMaxReward) external;
 
     /*//////////////////////////////////////////
             Proof Request Management
