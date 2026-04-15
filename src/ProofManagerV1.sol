@@ -55,8 +55,8 @@ contract ProofManagerV1 is
 
     /// @dev Hard-coded constant on maximum reward amount.
     ///      Constant limits maximum reward that can be provided for a single proof request.
-    ///      Safe capacity for the reward is 5 USDC per proof, although the actual value is lower.
-    uint256 private constant MAX_REWARD = 5_000_000;
+    ///      Safe capacity for the reward is 1 USDC per proof, although the actual value is lower.
+    uint256 private constant MAX_REWARD = 1_000_000;
 
     /*//////////////////////////////////////////
                     Modifiers
