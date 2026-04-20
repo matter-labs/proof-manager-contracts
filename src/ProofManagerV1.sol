@@ -432,8 +432,7 @@ contract ProofManagerV1 is
     function _can_accept_request() private view returns (bool) {
         uint256 balance = usdc.balanceOf(address(this));
         uint256 obligations = _provingNetworks[ProvingNetwork.Fermah].owedReward
-            + _provingNetworks[ProvingNetwork.Lagrange].owedReward
-            + potentialFutureReward
+            + _provingNetworks[ProvingNetwork.Lagrange].owedReward + potentialFutureReward
             + heapObligations;
 
         if (balance < obligations) return false;

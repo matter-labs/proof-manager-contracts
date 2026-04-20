@@ -10,6 +10,7 @@ import { ProxyAdmin } from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin
 import {
     TransparentUpgradeableProxy
 } from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /// @dev Test contract for the ProofManagerV1 contract.
 contract ProofManagerV1Test is Test {
@@ -212,7 +213,7 @@ contract ProofManagerV1Test is Test {
     /// @dev initializeV2 is guarded by reinitializer(2) and cannot be called more than once.
     function testInitializeV2_cannotBeCalledTwice() public {
         // proofManager in setUp already had initializeV2 called once.
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(Initializable.InvalidInitialization.selector));
         proofManager.initializeV2();
     }
 
