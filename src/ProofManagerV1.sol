@@ -234,6 +234,7 @@ contract ProofManagerV1 is
 
         if (status == ProofRequestStatus.PendingAcknowledgement) {
             _heap.addProofRequest(block.timestamp + ACK_TIMEOUT, id);
+            heapObligations += params.maxReward;
         }
 
         _proofRequests[id.chainId][id.blockNumber] = ProofRequest({
@@ -320,6 +321,7 @@ contract ProofManagerV1 is
             _heap.replaceAt(id, _proofRequest.submittedAt + _proofRequest.timeoutAfter);
         } else {
             _heap.remove(id);
+            heapObligations -= _proofRequest.maxReward;
         }
 
         emit ProofRequestAcknowledged(
@@ -348,6 +350,7 @@ contract ProofManagerV1 is
             requestedReward <= _proofRequest.maxReward ? requestedReward : _proofRequest.maxReward;
 
         _heap.remove(id);
+        heapObligations -= _proofRequest.maxReward;
         potentialFutureReward += _proofRequest.requestedReward;
 
         emit ProofRequestProven(
@@ -414,23 +417,27 @@ contract ProofManagerV1 is
     }
 
     function _updateMaxReward(uint256 newMaxReward) private {
-        // Guard against accidentally setting maxReward to 0, which would lock any pre-funded
-        // USDC in the contract (no requests could be accepted, so the funds would be unspendable).
+        // Guard against accidentally setting maxReward to 0, which would prevent any new
+        // proof requests from being accepted.
         if (newMaxReward == 0) revert MaxRewardOutOfBounds();
         maxReward = newMaxReward;
         emit MaxRewardUpdated(newMaxReward);
     }
 
-    /// @dev Computes the total amount of in-flight requests and checks if the contract has enough funds to accept the new one
+    /// @dev Returns true if the contract can afford one more proof request at the current `maxReward`.
+    ///
+    /// `heapObligations` tracks the sum of per-request `maxReward` values for every item currently
+    /// in the heap, so the check remains correct even when the global `maxReward` is changed while
+    /// requests are in flight (older requests may have been accepted at a higher cap).
     function _can_accept_request() private view returns (bool) {
         uint256 balance = usdc.balanceOf(address(this));
         uint256 obligations = _provingNetworks[ProvingNetwork.Fermah].owedReward
-            + _provingNetworks[ProvingNetwork.Lagrange].owedReward + potentialFutureReward;
+            + _provingNetworks[ProvingNetwork.Lagrange].owedReward
+            + potentialFutureReward
+            + heapObligations;
 
-        // NOTE: With current mechanism of controlling the reward, it is not possible to have more obligations than balance.
-        uint256 free = balance - obligations;
-        uint256 capacity = free / maxReward;
-        return capacity > _heap.size();
+        if (balance < obligations) return false;
+        return (balance - obligations) >= maxReward;
     }
 
     /// @dev Purges expired requests (block.timestamp > request.expiryTimestamp) from the heap.
@@ -441,6 +448,8 @@ contract ProofManagerV1 is
             ProofRequest storage _proofRequest = _proofRequests[
                 node.proofRequestIdentifier.chainId
             ][node.proofRequestIdentifier.blockNumber];
+
+            heapObligations -= _proofRequest.maxReward;
 
             if (_proofRequest.status == ProofRequestStatus.PendingAcknowledgement) {
                 _proofRequest.status = ProofRequestStatus.Unacknowledged;

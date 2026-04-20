@@ -1016,14 +1016,24 @@ contract ProofManagerV1Test is Test {
     }
 
     function testRequestRejectedIfNoFundsAvailable() public {
-        // 2 out of 4 requests will get refused, so only at 18 requests we will get 10 in-flight ones
-        for (uint256 i = 0; i < 18; i++) {
+        // The round-robin assigns: Fermah, Lagrange, None (refused), None (refused), repeat.
+        // So 2 of every 4 requests are refused and never enter the heap.
+        //
+        // Capacity is now tracked via `heapObligations` (sum of per-request maxReward in the heap)
+        // rather than heap.size() × globalMaxReward. Each request uses maxReward=4e6; the global
+        // cap is 5e6; balance is 50e6.
+        //
+        // The contract accepts one more request while free = balance - heapObligations >= globalMaxReward.
+        // With 12 items in the heap: free = 50e6 - 12×4e6 = 2e6 < 5e6 → rejected.
+        // The 12th in-flight item is added at i=21; the rejection is triggered at i=22 (refused,
+        // but the capacity check runs before assignment and still fails).
+        for (uint256 i = 0; i < 22; i++) {
             submitDefaultProofRequest(1, i + 1);
         }
 
         vm.expectRevert(abi.encodeWithSelector(IProofManager.NoFundsAvailable.selector));
 
-        submitDefaultProofRequest(1, 19);
+        submitDefaultProofRequest(1, 23);
     }
 
     /*//////////////////////////////////////////
