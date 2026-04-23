@@ -402,6 +402,60 @@ contract ProofManagerV1Test is Test {
         proofManager.updateMaxReward(0);
     }
 
+    /// @dev Lowering maxReward while the heap holds high-reward proofs must not cause insolvency.
+    ///
+    /// Sequence:
+    ///   1. Fill the heap with proofs at 4 USDC each until the 5 USDC cap leaves no room.
+    ///   2. Lower the cap to 1 USDC — this widens the available capacity.
+    ///   3. Submit additional proofs at 1 USDC each until the heap is full again.
+    ///   4. Assert that the total heap obligations never exceed the contract's USDC balance.
+    function testUpdateMaxReward_lowerCapDoesNotUnderfund() public {
+        // setUp mints 50 USDC (50_000_000) into the contract and sets maxReward = 5 USDC.
+        // With per-proof rewards of 4 USDC, the capacity check (balance - heapObligations >= maxReward)
+        // allows at most 12 proofs before the remaining free balance drops below the 5 USDC cap.
+        vm.startPrank(submitter);
+        for (uint256 i = 0; i < 12; i++) {
+            proofManager.submitProofRequest(
+                IProofManager.ProofRequestIdentifier(1, uint256(i + 1)),
+                IProofManager.ProofRequestParams({
+                    proofInputsUrl: "https://console.google.com/buckets/...",
+                    protocolMajor: 0,
+                    protocolMinor: 27,
+                    protocolPatch: 0,
+                    timeoutAfter: 3600,
+                    maxReward: 4_000_000
+                })
+            );
+        }
+        vm.stopPrank();
+
+        // Lower the cap from 5 USDC to 1 USDC. The free balance (50M - 48M = 2M) now satisfies
+        // the new cap, so two more 1 USDC proofs can be accepted.
+        vm.prank(owner);
+        proofManager.updateMaxReward(1_000_000);
+
+        vm.startPrank(submitter);
+        for (uint256 i = 0; i < 2; i++) {
+            proofManager.submitProofRequest(
+                IProofManager.ProofRequestIdentifier(1, uint256(13 + i)),
+                IProofManager.ProofRequestParams({
+                    proofInputsUrl: "https://console.google.com/buckets/...",
+                    protocolMajor: 0,
+                    protocolMinor: 27,
+                    protocolPatch: 0,
+                    timeoutAfter: 3600,
+                    maxReward: 1_000_000
+                })
+            );
+        }
+        vm.stopPrank();
+
+        uint256 heapObligations = proofManager.getHeapObligations();
+        uint256 balance = usdc.balanceOf(address(proofManager));
+
+        assertLe(heapObligations, balance, "heap obligations must not exceed contract balance");
+    }
+
     /*//////////////////////////////////////////
             3. Proof Request Management
     //////////////////////////////////////////*/

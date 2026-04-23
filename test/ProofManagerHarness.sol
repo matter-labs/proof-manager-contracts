@@ -25,6 +25,11 @@ contract ProofManagerV1Harness is ProofManagerV1 {
     function getMaxReward() external view returns (uint256) {
         return maxReward;
     }
+
+    /// @dev Exposes the internal heapObligations storage variable for assertions in tests.
+    function getHeapObligations() external view returns (uint256) {
+        return heapObligations;
+    }
 }
 
 /// @dev Mock USDC contract implementation.
