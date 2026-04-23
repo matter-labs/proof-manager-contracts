@@ -269,12 +269,8 @@ interface IProofManager {
 
     /// @dev Withdraws any ERC20 token from the contract to the caller. Can only be called by admin.
     ///
-    /// This function intentionally places no cap on the withdrawal amount, making it usable as an
-    /// emergency brake: if the admin decides that outstanding pending proofs should not be paid
-    /// (e.g. unwanted or erroneous submissions), the entire balance can be reclaimed. In that
-    /// scenario the pending obligations become insolvent and claiming rewards for those proofs will
-    /// revert. Under normal operation the admin is expected to monitor the contract's balance and
-    /// only withdraw funds that are not already committed to pending proofs.
+    /// This function doesn't have a cap, so admin should be careful when calling it to not withdraw funds that are needed to pay for pending proofs.
+    /// Although, this can be treated as emergency brake in case something goes wrong. Should not happen under any normal circumstances.
     ///
     /// @param token ERC20 token address to withdraw.
     /// @param amount Amount to withdraw (in token's native decimals).
