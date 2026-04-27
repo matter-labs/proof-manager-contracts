@@ -157,6 +157,9 @@ interface IProofManager {
     /// @dev Emitted when Proving Network is updated (once per month). Useful for transparency and troubleshooting.
     event PreferredProvingNetworkUpdated(ProvingNetwork indexed provingNetwork);
 
+    /// @dev Emitted when admin updates the maximum reward cap.
+    event MaxRewardUpdated(uint256 newMaxReward);
+
     /*//////////////////////////////////////////
                       Errors
     //////////////////////////////////////////*/
@@ -218,6 +221,10 @@ interface IProofManager {
     ///     Can be called only by owner.
     function updatePreferredProvingNetwork(ProvingNetwork network) external;
 
+    /// @dev Updates the maximum reward cap for a single proof request. Can be called only by admin.
+    /// @param newMaxReward New maximum reward value (in USDC with 6 decimals).
+    function updateMaxReward(uint256 newMaxReward) external;
+
     /*//////////////////////////////////////////
             Proof Request Management
     //////////////////////////////////////////*/
@@ -261,6 +268,10 @@ interface IProofManager {
     function claimReward() external;
 
     /// @dev Withdraws any ERC20 token from the contract to the caller. Can only be called by admin.
+    ///
+    /// This function doesn't have a cap, so admin should be careful when calling it to not withdraw funds that are needed to pay for pending proofs.
+    /// Although, this can be treated as emergency brake in case something goes wrong. Should not happen under any normal circumstances.
+    ///
     /// @param token ERC20 token address to withdraw.
     /// @param amount Amount to withdraw (in token's native decimals).
     function withdraw(address token, uint256 amount) external;

@@ -10,6 +10,7 @@ import { ProxyAdmin } from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin
 import {
     TransparentUpgradeableProxy
 } from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /// @dev Test contract for the ProofManagerV1 contract.
 contract ProofManagerV1Test is Test {
@@ -45,6 +46,7 @@ contract ProofManagerV1Test is Test {
         vm.prank(owner);
 
         proofManager.initialize(fermah, lagrange, address(usdc), submitter, owner);
+        proofManager.initializeV2();
 
         usdc.mint(address(proofManager), 50_000_000);
     }
@@ -186,6 +188,36 @@ contract ProofManagerV1Test is Test {
     }
 
     /*//////////////////////////////////////////
+            1.II. V2 Upgrade
+    //////////////////////////////////////////*/
+
+    /// @dev initializeV2 seeds maxReward with the previously hard-coded value (5 USDC) and emits the event.
+    function testInitializeV2_seedsMaxReward() public {
+        ProofManagerV1Harness impl = new ProofManagerV1Harness();
+        ProxyAdmin admin = new ProxyAdmin(owner);
+        TransparentUpgradeableProxy proxy =
+            new TransparentUpgradeableProxy(address(impl), address(admin), "");
+        ProofManagerV1Harness _proofManager = ProofManagerV1Harness(address(proxy));
+
+        vm.prank(owner);
+        _proofManager.initialize(fermah, lagrange, address(usdc), submitter, owner);
+
+        vm.expectEmit(false, false, false, true);
+        emit IProofManager.MaxRewardUpdated(5_000_000);
+
+        _proofManager.initializeV2();
+
+        assertEq(_proofManager.getMaxReward(), 5_000_000, "maxReward should be seeded to 5 USDC");
+    }
+
+    /// @dev initializeV2 is guarded by reinitializer(2) and cannot be called more than once.
+    function testInitializeV2_cannotBeCalledTwice() public {
+        // proofManager in setUp already had initializeV2 called once.
+        vm.expectRevert(abi.encodeWithSelector(Initializable.InvalidInitialization.selector));
+        proofManager.initializeV2();
+    }
+
+    /*//////////////////////////////////////////
         2. Proving Network Management
     //////////////////////////////////////////*/
 
@@ -308,6 +340,120 @@ contract ProofManagerV1Test is Test {
         vm.prank(externalAddr);
         expectAccessRevert(externalAddr, owner_role);
         proofManager.updatePreferredProvingNetwork(IProofManager.ProvingNetwork.Fermah);
+    }
+
+    /*//////////////////////////////////////////
+            2.IV. Update Max Reward
+    //////////////////////////////////////////*/
+
+    /// @dev Happy path: admin raises the cap and a proof request that was previously over-limit is now accepted.
+    function testUpdateMaxReward() public {
+        uint256 newCap = 8_000_000;
+
+        vm.expectEmit(false, false, false, true);
+        emit IProofManager.MaxRewardUpdated(newCap);
+
+        vm.prank(owner);
+        proofManager.updateMaxReward(newCap);
+
+        assertEq(proofManager.getMaxReward(), newCap, "maxReward should reflect the new cap");
+
+        // A request offering more than the old 5 USDC cap is now valid.
+        vm.prank(submitter);
+        proofManager.submitProofRequest(
+            IProofManager.ProofRequestIdentifier(1, 1),
+            IProofManager.ProofRequestParams({
+                proofInputsUrl: "https://console.google.com/buckets/...",
+                protocolMajor: 0,
+                protocolMinor: 27,
+                protocolPatch: 0,
+                timeoutAfter: 3600,
+                maxReward: 7_000_000
+            })
+        );
+    }
+
+    /// @dev Lowering the cap blocks proof requests that exceed the new, tighter limit.
+    function testUpdateMaxReward_lowerCapEnforced() public {
+        uint256 newCap = 2_000_000;
+
+        vm.prank(owner);
+        proofManager.updateMaxReward(newCap);
+
+        // defaultProofRequestParams uses 4e6 which is now over the new cap.
+        vm.expectRevert(abi.encodeWithSelector(IProofManager.MaxRewardOutOfBounds.selector));
+        vm.prank(submitter);
+        proofManager.submitProofRequest(
+            IProofManager.ProofRequestIdentifier(1, 1), defaultProofRequestParams()
+        );
+    }
+
+    /// @dev Non-admin cannot change the max reward cap.
+    function testUpdateMaxReward_nonOwnerReverts() public {
+        vm.prank(externalAddr);
+        expectAccessRevert(externalAddr, owner_role);
+        proofManager.updateMaxReward(1_000_000);
+    }
+
+    /// @dev Setting maxReward to zero is rejected to prevent locking pre-funded USDC in the contract.
+    function testUpdateMaxReward_cannotSetToZero() public {
+        vm.expectRevert(abi.encodeWithSelector(IProofManager.MaxRewardOutOfBounds.selector));
+        vm.prank(owner);
+        proofManager.updateMaxReward(0);
+    }
+
+    /// @dev Lowering maxReward while the heap holds high-reward proofs must not cause insolvency.
+    ///
+    /// Sequence:
+    ///   1. Fill the heap with proofs at 4 USDC each until the 5 USDC cap leaves no room.
+    ///   2. Lower the cap to 1 USDC — this widens the available capacity.
+    ///   3. Submit additional proofs at 1 USDC each until the heap is full again.
+    ///   4. Assert that the total heap obligations never exceed the contract's USDC balance.
+    function testUpdateMaxReward_lowerCapDoesNotUnderfund() public {
+        // setUp mints 50 USDC (50_000_000) into the contract and sets maxReward = 5 USDC.
+        // With per-proof rewards of 4 USDC, the capacity check (balance - heapObligations >= maxReward)
+        // allows at most 12 proofs before the remaining free balance drops below the 5 USDC cap.
+        vm.startPrank(submitter);
+        for (uint256 i = 0; i < 12; i++) {
+            proofManager.submitProofRequest(
+                IProofManager.ProofRequestIdentifier(1, uint256(i + 1)),
+                IProofManager.ProofRequestParams({
+                    proofInputsUrl: "https://console.google.com/buckets/...",
+                    protocolMajor: 0,
+                    protocolMinor: 27,
+                    protocolPatch: 0,
+                    timeoutAfter: 3600,
+                    maxReward: 4_000_000
+                })
+            );
+        }
+        vm.stopPrank();
+
+        // Lower the cap from 5 USDC to 1 USDC. The free balance (50M - 48M = 2M) now satisfies
+        // the new cap, so two more 1 USDC proofs can be accepted.
+        vm.prank(owner);
+        proofManager.updateMaxReward(1_000_000);
+
+        vm.startPrank(submitter);
+        for (uint256 i = 0; i < 2; i++) {
+            proofManager.submitProofRequest(
+                IProofManager.ProofRequestIdentifier(1, uint256(13 + i)),
+                IProofManager.ProofRequestParams({
+                    proofInputsUrl: "https://console.google.com/buckets/...",
+                    protocolMajor: 0,
+                    protocolMinor: 27,
+                    protocolPatch: 0,
+                    timeoutAfter: 3600,
+                    maxReward: 1_000_000
+                })
+            );
+        }
+        vm.stopPrank();
+
+        uint256 heapObligations = proofManager.getHeapObligations();
+        uint256 balance = usdc.balanceOf(address(proofManager));
+
+        assertLe(heapObligations, balance, "heap obligations must not exceed contract balance");
     }
 
     /*//////////////////////////////////////////
@@ -925,14 +1071,24 @@ contract ProofManagerV1Test is Test {
     }
 
     function testRequestRejectedIfNoFundsAvailable() public {
-        // 2 out of 4 requests will get refused, so only at 18 requests we will get 10 in-flight ones
-        for (uint256 i = 0; i < 18; i++) {
+        // The round-robin assigns: Fermah, Lagrange, None (refused), None (refused), repeat.
+        // So 2 of every 4 requests are refused and never enter the heap.
+        //
+        // Capacity is now tracked via `heapObligations` (sum of per-request maxReward in the heap)
+        // rather than heap.size() × globalMaxReward. Each request uses maxReward=4e6; the global
+        // cap is 5e6; balance is 50e6.
+        //
+        // The contract accepts one more request while free = balance - heapObligations >= globalMaxReward.
+        // With 12 items in the heap: free = 50e6 - 12×4e6 = 2e6 < 5e6 → rejected.
+        // The 12th in-flight item is added at i=21; the rejection is triggered at i=22 (refused,
+        // but the capacity check runs before assignment and still fails).
+        for (uint256 i = 0; i < 22; i++) {
             submitDefaultProofRequest(1, i + 1);
         }
 
         vm.expectRevert(abi.encodeWithSelector(IProofManager.NoFundsAvailable.selector));
 
-        submitDefaultProofRequest(1, 19);
+        submitDefaultProofRequest(1, 23);
     }
 
     /*//////////////////////////////////////////
