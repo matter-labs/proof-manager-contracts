@@ -41,7 +41,7 @@ abstract contract ProofManagerStorage {
 
     /// @dev Maximum reward that can be offered for a single proof request. Configurable by admin.
     ///      Stored as a variable (not a constant) so it can be adjusted without a contract upgrade.
-    uint256 internal maxReward;
+    uint256 public maxReward;
 
     /// @dev Running sum of the per-request `maxReward` for every proof request currently in the heap.
     ///      Tracks the worst-case payout owed to in-flight requests, so that the capacity check in
