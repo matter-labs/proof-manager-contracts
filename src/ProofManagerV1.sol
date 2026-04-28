@@ -125,6 +125,34 @@ contract ProofManagerV1 is
         _updateMaxReward(5_000_000);
     }
 
+    /// @dev Recovery migration for proxies that were upgraded to V2 while the heap was
+    ///      non-empty. `heapObligations` is a counter introduced together with V2, so the
+    ///      V2 upgrade left it at zero even though the heap inherited in-flight requests
+    ///      from V1. The first subsequent call that decrements `heapObligations` (the
+    ///      `_purge_expired_requests` loop inside `submitProofRequest`, the refused branch
+    ///      of `acknowledgeProofRequest`, or `submitProof`) then underflows with
+    ///      `Panic(0x11)`, bricking those code paths.
+    ///
+    ///      This routine walks every entry currently in the heap and sums the
+    ///      per-request `maxReward` to reconstruct the value `heapObligations` should
+    ///      have had immediately after the V2 upgrade. `reinitializer(3)` ensures it
+    ///      runs at most once on a given proxy.
+    ///
+    ///      Note: greenfield deployments will never have a non-empty heap before V3 is
+    ///      reached, so for those proxies this call is a harmless no-op that simply
+    ///      bumps the initialized version.
+    function initializeV3() external reinitializer(3) {
+        uint256 obligations = 0;
+        uint256 n = _heap.size();
+        for (uint256 i = 1; i <= n; i++) {
+            MinHeapLib.Node memory node = _heap.nodeAt(i);
+            obligations += _proofRequests[
+                node.proofRequestIdentifier.chainId
+            ][node.proofRequestIdentifier.blockNumber].maxReward;
+        }
+        heapObligations = obligations;
+    }
+
     /*////////////////////////
             Getters
     ////////////////////////*/
