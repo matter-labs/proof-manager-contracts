@@ -147,8 +147,8 @@ contract ProofManagerV1 is
         for (uint256 i = 1; i <= n; i++) {
             MinHeapLib.Node memory node = _heap.nodeAt(i);
             obligations += _proofRequests[
-                node.proofRequestIdentifier.chainId
-            ][node.proofRequestIdentifier.blockNumber].maxReward;
+                    node.proofRequestIdentifier.chainId
+                ][node.proofRequestIdentifier.blockNumber].maxReward;
         }
         heapObligations = obligations;
     }
