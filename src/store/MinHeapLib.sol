@@ -56,6 +56,19 @@ library MinHeapLib {
         return heap.nodes[1];
     }
 
+    /// @notice Returns the i-th node in the heap, using 1-based indexing.
+    /// @dev Provided for one-shot migrations that must walk every entry currently
+    ///      in the heap (e.g. backfilling an aggregate counter that was added in
+    ///      a later upgrade). Heap order is *not* sorted order — callers that need
+    ///      to enumerate every entry can simply iterate i = 1..size() and read each
+    ///      node's `proofRequestIdentifier`, which is sufficient for aggregation.
+    /// @param heap The heap to query
+    /// @param i 1-based index in the range [1, size()]; passing 0 or out-of-range reverts.
+    function nodeAt(Heap storage heap, uint256 i) internal view returns (Node memory) {
+        require(i != 0 && i < heap.nodes.length, "Heap: idx OOB");
+        return heap.nodes[i];
+    }
+
     /// @notice Gets the heap index for a given proof request identifier
     /// @param heap The heap to query
     /// @param proofRequestIdentifier The proof request identifier to look up

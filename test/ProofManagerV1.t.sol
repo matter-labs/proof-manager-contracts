@@ -218,6 +218,144 @@ contract ProofManagerV1Test is Test {
     }
 
     /*//////////////////////////////////////////
+            1.III. V3 Recovery Migration
+    //////////////////////////////////////////*/
+
+    // The V2 upgrade introduced the `heapObligations` counter but left it at zero on
+    // proxies that already had in-flight requests in the heap, which caused
+    // `_purge_expired_requests` and the refused/proven branches to underflow with
+    // `Panic(0x11)` once any pre-existing entry got touched. The tests below cover
+    // `initializeV3`, the one-shot recovery routine that walks the live heap and
+    // rebuilds `heapObligations` so those code paths become safe again.
+
+    /// @dev Storage slot of the `heapObligations` field (slot index 8 per
+    ///      `forge inspect ProofManagerV1 storage-layout`). Used by the tests below
+    ///      to simulate the bug state on otherwise-correctly-tracked harness storage.
+    bytes32 private constant HEAP_OBLIGATIONS_SLOT = bytes32(uint256(8));
+
+    /// @dev With a populated heap, V3 must reconstruct `heapObligations` as the sum
+    ///      of `maxReward` over every entry currently in the heap. We populate the
+    ///      heap normally (so the harness tracks the correct value), then clobber the
+    ///      slot to zero to simulate the post-V2 bug, and finally assert that V3
+    ///      restores the value to what it was before clobbering.
+    function testInitializeV3_backfillsHeapObligations() public {
+        // Populate the heap with three requests of distinct maxRewards. Use distinct
+        // values so a wrong-attribution implementation (e.g. counting the same entry
+        // multiple times) would surface as a mismatched total. Set Fermah as the
+        // preferred network so every round-robin slot maps to an active provider —
+        // without this the third submission would be refused and would never enter
+        // the heap, making the expected sum smaller than intended.
+        vm.prank(owner);
+        proofManager.updatePreferredProvingNetwork(IProofManager.ProvingNetwork.Fermah);
+
+        uint256[3] memory rewards = [uint256(4_000_000), 3_000_000, 2_500_000];
+        uint256 expected = 0;
+        for (uint256 i = 0; i < rewards.length; i++) {
+            vm.prank(submitter);
+            proofManager.submitProofRequest(
+                IProofManager.ProofRequestIdentifier(1, i + 1),
+                IProofManager.ProofRequestParams({
+                    proofInputsUrl: "https://console.google.com/buckets/...",
+                    protocolMajor: 0,
+                    protocolMinor: 27,
+                    protocolPatch: 0,
+                    timeoutAfter: 3600,
+                    maxReward: rewards[i]
+                })
+            );
+            expected += rewards[i];
+        }
+        assertEq(
+            proofManager.getHeapObligations(),
+            expected,
+            "sanity: harness should track obligations correctly before clobbering"
+        );
+
+        // Simulate the post-V2 bug: counter zeroed out while the heap still holds entries.
+        vm.store(address(proofManager), HEAP_OBLIGATIONS_SLOT, bytes32(uint256(0)));
+        assertEq(proofManager.getHeapObligations(), 0, "clobber must take effect");
+
+        proofManager.initializeV3();
+
+        assertEq(
+            proofManager.getHeapObligations(),
+            expected,
+            "V3 must rebuild heapObligations as sum of in-flight maxRewards"
+        );
+    }
+
+    /// @dev End-to-end: in the bugged state, `submitProofRequest` reverts with
+    ///      `Panic(0x11)` once a pre-existing heap entry has expired and the purge
+    ///      loop tries to subtract from a zero counter. After running V3 the same
+    ///      submission succeeds, confirming the recovery actually unbricks the
+    ///      contract rather than just reshuffling internal state.
+    function testInitializeV3_unbricksSubmitAfterExpiry() public {
+        submitDefaultProofRequest(1, 1);
+
+        // Reproduce the bug: counter at zero while the heap still holds the entry above.
+        vm.store(address(proofManager), HEAP_OBLIGATIONS_SLOT, bytes32(uint256(0)));
+
+        // ACK_TIMEOUT is 2 minutes; warping past it means the entry is expired and the
+        // next `submitProofRequest` will hit `_purge_expired_requests`.
+        vm.warp(block.timestamp + 3 minutes);
+
+        vm.expectRevert(stdError.arithmeticError);
+        vm.prank(submitter);
+        proofManager.submitProofRequest(
+            IProofManager.ProofRequestIdentifier(1, 2), defaultProofRequestParams()
+        );
+
+        // Recovery: rebuild the counter, then the same submission should now succeed.
+        proofManager.initializeV3();
+
+        vm.prank(submitter);
+        proofManager.submitProofRequest(
+            IProofManager.ProofRequestIdentifier(1, 2), defaultProofRequestParams()
+        );
+    }
+
+    /// @dev V3 only counts entries that are *currently* in the heap. Requests that
+    ///      have left the heap (proven, refused, expired-and-purged) must not be
+    ///      double-counted, otherwise the rebuilt value would over-state obligations
+    ///      and reduce capacity for new submissions.
+    function testInitializeV3_excludesEntriesAlreadyRemovedFromHeap() public {
+        // (1, 1): submit then prove — leaves the heap.
+        submitDefaultProofRequest(1, 1);
+        vm.prank(fermah);
+        proofManager.acknowledgeProofRequest(IProofManager.ProofRequestIdentifier(1, 1), true);
+        vm.prank(fermah);
+        proofManager.submitProof(
+            IProofManager.ProofRequestIdentifier(1, 1), bytes("proof"), 4_000_000
+        );
+
+        // (1, 2): submit and leave it pending — stays in the heap.
+        submitDefaultProofRequest(1, 2);
+
+        uint256 expected = 4_000_000; // only (1, 2) is still in the heap
+
+        // Clobber and recover.
+        vm.store(address(proofManager), HEAP_OBLIGATIONS_SLOT, bytes32(uint256(0)));
+        proofManager.initializeV3();
+
+        assertEq(
+            proofManager.getHeapObligations(),
+            expected,
+            "V3 must skip proof requests that have already been removed from the heap"
+        );
+    }
+
+    /// @dev `reinitializer(3)` must prevent replay. Re-running V3 — including via the
+    ///      same admin path that legitimately invokes it during the upgrade — has to
+    ///      revert, otherwise an attacker (or a misconfigured upgrade) could clobber
+    ///      heapObligations after the contract has resumed normal operation.
+    function testInitializeV3_cannotBeCalledTwice() public {
+        proofManager.initializeV3();
+
+        vm.expectRevert(abi.encodeWithSelector(Initializable.InvalidInitialization.selector));
+        proofManager.initializeV3();
+    }
+
+    /*//////////////////////////////////////////
         2. Proving Network Management
     //////////////////////////////////////////*/
 
