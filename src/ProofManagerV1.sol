@@ -392,30 +392,39 @@ contract ProofManagerV1 is
 
     /// @inheritdoc IProofManager
     function claimReward() external onlyProvingNetwork {
-        ProvingNetwork provingNetwork = msg.sender == _provingNetworks[ProvingNetwork.Fermah].addr
-            ? ProvingNetwork.Fermah
-            : ProvingNetwork.Lagrange;
-
-        ProvingNetworkInfo storage info = _provingNetworks[provingNetwork];
-        uint256 toPay = info.owedReward;
+        // NOTE: The same address can be registered for more than one proving network (for instance
+        //      while a single operator runs both). Resolving `msg.sender` to a single network would
+        //      make the other network's `owedReward` permanently unclaimable, so every network the
+        //      caller is registered for is settled in the same call.
+        uint256 fermahReward = _takeOwedReward(ProvingNetwork.Fermah);
+        uint256 lagrangeReward = _takeOwedReward(ProvingNetwork.Lagrange);
+        uint256 toPay = fermahReward + lagrangeReward;
 
         if (toPay == 0) revert NoPaymentDue();
 
         // NOTE: In theory, we always should have enough funds to pay the reward as it is controlled by the contract itself.
 
-        info.owedReward = 0;
-
         bytes32 assetId = INativeTokenVault(L2_NATIVE_TOKEN_VAULT_ADDR).assetId(address(usdc));
 
         IL2AssetRouter(L2_ASSET_ROUTER_ADDR)
-            .withdraw(assetId, DataEncoding.encodeBridgeBurnData(toPay, info.addr, address(usdc)));
+            .withdraw(assetId, DataEncoding.encodeBridgeBurnData(toPay, msg.sender, address(usdc)));
 
-        emit RewardClaimed(provingNetwork, toPay);
+        if (fermahReward != 0) emit RewardClaimed(ProvingNetwork.Fermah, fermahReward);
+        if (lagrangeReward != 0) emit RewardClaimed(ProvingNetwork.Lagrange, lagrangeReward);
     }
 
     // /*////////////////////////
     //         Helpers
     // ////////////////////////*/
+
+    /// @dev Zeroes out and returns `provingNetwork`'s owed reward, but only if the caller is the
+    ///      address currently registered for that network. Returns 0 otherwise.
+    function _takeOwedReward(ProvingNetwork provingNetwork) private returns (uint256 owed) {
+        ProvingNetworkInfo storage info = _provingNetworks[provingNetwork];
+        if (info.addr != msg.sender) return 0;
+        owed = info.owedReward;
+        info.owedReward = 0;
+    }
 
     /// @dev Initializes a proving network's state. Used at initialization time.
     function _initializeProvingNetwork(ProvingNetwork provingNetwork, address addr) private {

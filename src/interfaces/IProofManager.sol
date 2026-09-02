@@ -265,6 +265,8 @@ interface IProofManager {
 
     /// @dev Claim rewards (in USDC) for already validated proofs.
     ///     Can be called only by the Proving Network, assuming there is a reward due.
+    ///     NOTE: If the caller's address is registered for several Proving Networks, the rewards owed
+    ///     to all of them are paid out in a single withdrawal (one `RewardClaimed` event per network).
     function claimReward() external;
 
     /// @dev Withdraws any ERC20 token from the contract to the caller. Can only be called by admin.

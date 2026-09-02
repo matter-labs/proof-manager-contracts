@@ -11,6 +11,19 @@ import {
     TransparentUpgradeableProxy
 } from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {
+    INativeTokenVault
+} from "era-contracts/l1-contracts/contracts/bridge/ntv/INativeTokenVault.sol";
+import {
+    IL2AssetRouter
+} from "era-contracts/l1-contracts/contracts/bridge/asset-router/IL2AssetRouter.sol";
+import {
+    DataEncoding
+} from "era-contracts/l1-contracts/contracts/common/libraries/DataEncoding.sol";
+import {
+    L2_NATIVE_TOKEN_VAULT_ADDR,
+    L2_ASSET_ROUTER_ADDR
+} from "era-contracts/l1-contracts/contracts/common/L2ContractAddresses.sol";
 
 /// @dev Test contract for the ProofManagerV1 contract.
 contract ProofManagerV1Test is Test {
@@ -1208,6 +1221,106 @@ contract ProofManagerV1Test is Test {
         proofManager.claimReward();
     }
 
+    /// @dev Happy path: the caller is paid what its own network is owed, nothing more.
+    function testClaimRewardPaysOnlyCallersNetwork() public {
+        accrueReward(1, 1, IProofManager.ProvingNetwork.Fermah, fermah, 3e6);
+        accrueReward(1, 2, IProofManager.ProvingNetwork.Lagrange, lagrange, 2e6);
+
+        bytes32 assetId = mockBridge();
+
+        vm.expectCall(
+            L2_ASSET_ROUTER_ADDR,
+            abi.encodeCall(
+                IL2AssetRouter.withdraw,
+                (assetId, DataEncoding.encodeBridgeBurnData(3e6, fermah, address(usdc)))
+            )
+        );
+        vm.expectEmit(true, false, false, true);
+        emit IProofManager.RewardClaimed(IProofManager.ProvingNetwork.Fermah, 3e6);
+
+        vm.prank(fermah);
+        proofManager.claimReward();
+
+        assertEq(
+            proofManager.provingNetworkInfo(IProofManager.ProvingNetwork.Fermah).owedReward,
+            0,
+            "Fermah should have been paid"
+        );
+        assertEq(
+            proofManager.provingNetworkInfo(IProofManager.ProvingNetwork.Lagrange).owedReward,
+            2e6,
+            "Lagrange reward should be untouched"
+        );
+    }
+
+    /// @dev When one address is registered for both networks, a single claim settles both.
+    ///     Otherwise the rewards of whichever network loses the tie-break stay stuck forever.
+    function testClaimRewardPaysBothNetworksWhenAddressIsShared() public {
+        accrueReward(1, 1, IProofManager.ProvingNetwork.Fermah, fermah, 3e6);
+        accrueReward(1, 2, IProofManager.ProvingNetwork.Lagrange, lagrange, 2e6);
+
+        vm.prank(owner);
+        proofManager.updateProvingNetworkAddress(IProofManager.ProvingNetwork.Lagrange, fermah);
+
+        bytes32 assetId = mockBridge();
+
+        vm.expectCall(
+            L2_ASSET_ROUTER_ADDR,
+            abi.encodeCall(
+                IL2AssetRouter.withdraw,
+                (assetId, DataEncoding.encodeBridgeBurnData(5e6, fermah, address(usdc)))
+            )
+        );
+        vm.expectEmit(true, false, false, true);
+        emit IProofManager.RewardClaimed(IProofManager.ProvingNetwork.Fermah, 3e6);
+        vm.expectEmit(true, false, false, true);
+        emit IProofManager.RewardClaimed(IProofManager.ProvingNetwork.Lagrange, 2e6);
+
+        vm.prank(fermah);
+        proofManager.claimReward();
+
+        assertEq(
+            proofManager.provingNetworkInfo(IProofManager.ProvingNetwork.Fermah).owedReward,
+            0,
+            "Fermah should have been paid"
+        );
+        assertEq(
+            proofManager.provingNetworkInfo(IProofManager.ProvingNetwork.Lagrange).owedReward,
+            0,
+            "Lagrange should have been paid as well"
+        );
+    }
+
+    /// @dev A shared address that is only owed on the second network still gets paid.
+    function testClaimRewardPaysSharedAddressOwedOnlyByLagrange() public {
+        // Burn the first slot of the round robin (which always goes to Fermah) so that the
+        // request below is assigned to Lagrange and Fermah is owed nothing.
+        submitDefaultProofRequest(1, 1);
+        accrueReward(1, 2, IProofManager.ProvingNetwork.Lagrange, lagrange, 2e6);
+
+        vm.prank(owner);
+        proofManager.updateProvingNetworkAddress(IProofManager.ProvingNetwork.Lagrange, fermah);
+
+        bytes32 assetId = mockBridge();
+
+        vm.expectCall(
+            L2_ASSET_ROUTER_ADDR,
+            abi.encodeCall(
+                IL2AssetRouter.withdraw,
+                (assetId, DataEncoding.encodeBridgeBurnData(2e6, fermah, address(usdc)))
+            )
+        );
+
+        vm.prank(fermah);
+        proofManager.claimReward();
+
+        assertEq(
+            proofManager.provingNetworkInfo(IProofManager.ProvingNetwork.Lagrange).owedReward,
+            0,
+            "Lagrange should have been paid"
+        );
+    }
+
     function testRequestRejectedIfNoFundsAvailable() public {
         // The round-robin assigns: Fermah, Lagrange, None (refused), None (refused), repeat.
         // So 2 of every 4 requests are refused and never enter the heap.
@@ -1352,6 +1465,49 @@ contract ProofManagerV1Test is Test {
     //////////////////////////////////////////*/
 
     /// @dev Submits a default proof request to the proof manager.
+    /// @dev Drives a proof request through the full flow so that `network` ends up owed
+    ///     `requestedReward`. `provingNetworkAddr` must be the address currently registered
+    ///     for `network`, and the round robin must be about to assign the request to it.
+    function accrueReward(
+        uint256 chainId,
+        uint256 blockNumber,
+        IProofManager.ProvingNetwork network,
+        address provingNetworkAddr,
+        uint256 requestedReward
+    ) private {
+        IProofManager.ProofRequestIdentifier memory id =
+            IProofManager.ProofRequestIdentifier({ chainId: chainId, blockNumber: blockNumber });
+
+        submitDefaultProofRequest(chainId, blockNumber);
+        assertEq(
+            uint8(proofManager.proofRequest(id).assignedTo),
+            uint8(network),
+            "request was not assigned to the expected network"
+        );
+
+        vm.prank(provingNetworkAddr);
+        proofManager.acknowledgeProofRequest(id, true);
+        vm.prank(provingNetworkAddr);
+        proofManager.submitProof(id, bytes("such proof much wow"), requestedReward);
+        vm.prank(submitter);
+        proofManager.submitProofValidationResult(id, true);
+    }
+
+    /// @dev Mocks the L2 bridge contracts that `claimReward` withdraws through.
+    function mockBridge() private returns (bytes32 assetId) {
+        assetId = keccak256("usdc-asset-id");
+        vm.mockCall(
+            L2_NATIVE_TOKEN_VAULT_ADDR,
+            abi.encodeCall(INativeTokenVault.assetId, (address(usdc))),
+            abi.encode(assetId)
+        );
+        vm.mockCall(
+            L2_ASSET_ROUTER_ADDR,
+            abi.encodeWithSelector(IL2AssetRouter.withdraw.selector),
+            abi.encode(bytes32(0))
+        );
+    }
+
     function submitDefaultProofRequest(uint256 chainId, uint256 blockNumber) private {
         IProofManager.ProofRequestIdentifier memory id =
             IProofManager.ProofRequestIdentifier({ chainId: chainId, blockNumber: blockNumber });
